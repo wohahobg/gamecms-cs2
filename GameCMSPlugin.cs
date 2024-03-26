@@ -1,6 +1,4 @@
 ﻿using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Core.Attributes;
-using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Net;
 using CounterStrikeSharp.API;
@@ -11,12 +9,9 @@ using Entities;
 using Services;
 using Microsoft.Extensions.DependencyInjection;
 using static CounterStrikeSharp.API.Core.Listeners;
-using System.Reflection;
 using CounterStrikeSharp.API.Modules.Admin;
-using Serilog;
 
 namespace Main;
-[MinimumApiVersion(159)]
 public partial class GameCMSPlugin : BasePlugin, IPluginConfig<GameCMSConfig>
 {
     public override string ModuleName => "GameCMS.ORG Plugin";
@@ -24,9 +19,7 @@ public partial class GameCMSPlugin : BasePlugin, IPluginConfig<GameCMSConfig>
 
     public GameCMSConfig Config { get; set; } = new();
 
-    private Timer? _timer;
-    private readonly HttpClient client = new HttpClient();
-    private readonly TimeSpan _interval = TimeSpan.FromSeconds(60); // Interval of 60 seconds
+    private readonly HttpClient client = new();
     private int serverId;
     private Helper _helper;
     private WebstoreService _webStoreService;
@@ -101,12 +94,6 @@ public partial class GameCMSPlugin : BasePlugin, IPluginConfig<GameCMSConfig>
     {
         _adminService.ProgressAdminsData(serverId, Config.DeleteExpiredAdmins);
     }
-
-    private void TryToFetchStoreCommands(object? state)
-    {
-        
-    }
-
 
 
     public void OnConfigParsed(GameCMSConfig config)
