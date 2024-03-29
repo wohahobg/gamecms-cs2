@@ -202,8 +202,14 @@ public class HttpServerSerivce
         TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
         var queryString = context.Request.QueryString;
         bool includeBots = false;
+        ulong playerSteamId = 0;
 
-        // Check if "bots" parameter is set and if it's true.
+
+        if (ulong.TryParse(queryString["steam_id"], out ulong steamId))
+        {
+            playerSteamId = steamId;
+        }
+
         if (bool.TryParse(queryString["bots"], out bool botsParam))
         {
             includeBots = botsParam;
@@ -218,6 +224,11 @@ public class HttpServerSerivce
             if (!includeBots)
             {
                 players = players.Where(x => !x.IsBot);
+            }
+
+            if (playerSteamId != 0)
+            {
+                players = players.Where(x => x.SteamID == playerSteamId);
             }
 
             var playerInfos = GetPlayerInfos(players);
