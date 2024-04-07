@@ -10,6 +10,7 @@ using Services;
 using Microsoft.Extensions.DependencyInjection;
 using static CounterStrikeSharp.API.Core.Listeners;
 using CounterStrikeSharp.API.Modules.Admin;
+using System.Text.RegularExpressions;
 
 namespace Main;
 public partial class GameCMSPlugin : BasePlugin, IPluginConfig<GameCMSConfig>
@@ -26,7 +27,7 @@ public partial class GameCMSPlugin : BasePlugin, IPluginConfig<GameCMSConfig>
     private AdminService _adminService;
     private HttpServerSerivce _httpServer;
 
-    public GameCMSPlugin(Helper helper,WebstoreService webstoreService, AdminService adminService, HttpServerSerivce httpServer)
+    public GameCMSPlugin(Helper helper, WebstoreService webstoreService, AdminService adminService, HttpServerSerivce httpServer)
     {
         _helper = helper;
         _helper.setDirecotry(Server.GameDirectory);
@@ -53,6 +54,7 @@ public partial class GameCMSPlugin : BasePlugin, IPluginConfig<GameCMSConfig>
 
     private void OnMapStart(string OnMapStart)
     {
+        serverId = getServerId();
         _adminService.ProgressAdminsData(serverId, Config.DeleteExpiredAdmins);
     }
 
@@ -74,7 +76,6 @@ public partial class GameCMSPlugin : BasePlugin, IPluginConfig<GameCMSConfig>
                 if (apiResponse != null)
                 {
                     Logger.LogInformation("Successfully connected to GameCMS API.");
-                    //Run Task that
                     return apiResponse.id;
                 }
             }
@@ -94,6 +95,47 @@ public partial class GameCMSPlugin : BasePlugin, IPluginConfig<GameCMSConfig>
     {
         _adminService.ProgressAdminsData(serverId, Config.DeleteExpiredAdmins);
     }
+
+    [ConsoleCommand("css_gcms_k4syncranks")]
+    [CommandHelper(minArgs: 0, whoCanExecute: CommandUsage.CLIENT_AND_SERVER)]
+    [RequiresPermissions("@css/root")]
+    public void OnCommandSyncK4SystemRank(CCSPlayerController? player, CommandInfo command)
+    {
+
+        _ = Task.Run(async () =>
+        {
+            // Defining an asynchronous local function within the lambda expression
+            async Task TaskSync()
+            {
+                try
+                {
+                    string query = "DELETE FROM gcms_k4systemranks WHERE server_id = @server_id";
+                    var parameters = new Dictionary<string, object> { { "@server_id", serverId } };
+                    await Database.Instance.Delete(query, parameters);
+
+                    var ranksFilePath = _helper.GetFilePath("plugins/K4-System/ranks.jsonc");
+                    var jsonContent = Regex.Replace(File.ReadAllText(ranksFilePath), @"/\*(.*?)\*/|//(.*)", string.Empty, RegexOptions.Multiline);
+                    var rankDictionary = JsonSerializer.Deserialize<Dictionary<string, K4SystemRank>>(jsonContent);
+
+                    if (rankDictionary == null) return;
+
+                    foreach (var rank in rankDictionary.Values)
+                    {
+                        rank.server_id = serverId;
+                        await Database.Instance.Insert("gcms_k4systemranks", rank);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError($"K4System rank sync threw an error: {ex.Message}");
+
+                }
+            }
+            await TaskSync();
+        });
+        command.ReplyToCommand("[GameCMS.ORG] Ranks have been synced successfully");
+    }
+
 
 
     public void OnConfigParsed(GameCMSConfig config)

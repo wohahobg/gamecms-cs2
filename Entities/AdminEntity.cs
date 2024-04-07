@@ -22,7 +22,7 @@ namespace Entities
         public long server_id { get; set; }
         public string flags { get; set; } = string.Empty;
         public string name { get; set; } = string.Empty;
-        public int immunity;
+        public int immunity { get; set; } = 0;
     }
 
     public class AdminOverrideEntity

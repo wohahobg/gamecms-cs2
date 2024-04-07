@@ -17,19 +17,20 @@ public class AdminService
         _logger = logger;
     }
 
-    public void ProgressAdminsData(int serverId,bool deleteExpiredAdmins)
+    public void ProgressAdminsData(int serverId, bool deleteExpiredAdmins)
     {
 
         Task.Run(async () =>
         {
 
-            if (deleteExpiredAdmins){
-               await DeleteExpiredAdminsAsync(serverId);
+            if (deleteExpiredAdmins)
+            {
+                await DeleteExpiredAdminsAsync(serverId);
             }
 
             try
             {
-                
+
                 var admins = await FetchAllAdmins(serverId);
                 var groups = await FetchAllGroups(serverId);
                 var overrides = await FetchAllOverrides(serverId);
@@ -42,9 +43,10 @@ public class AdminService
                 {
                     foreach (var group in groups)
                     {
+                        Console.WriteLine(group.immunity);
                         groupsDict[group.name] = new
                         {
-                            group.immunity,
+                            immunity = group.immunity,
                             flags = JsonSerializer.Deserialize<List<string>>(group.flags) ?? new List<string>(),
                         };
                     }
@@ -101,7 +103,7 @@ public class AdminService
                     File.WriteAllTextAsync(pathFile, adminsJson);
                     Server.ExecuteCommand("css_admins_reload");
                 });
-                
+
             }
             catch (Exception ex)
             {

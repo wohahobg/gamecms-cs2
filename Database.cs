@@ -120,7 +120,7 @@ public class Database
         var columns = string.Join(", ", columnNames);
         var values = string.Join(", ", columnParameters);
         var sql = $"INSERT INTO {table} ({columns}) VALUES ({values});";
-
+        
         using var command = new MySqlCommand(sql, _connection);
 
         foreach (var property in properties)
@@ -243,6 +243,17 @@ public class Database
                     enabled TINYINT(1),
                     flags LONGTEXT DEFAULT '[]'
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
+
+        sql += @"
+        CREATE TABLE IF NOT EXISTS gcms_k4systemranks (
+            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+            server_id INT DEFAULT 0,
+            name VARCHAR(255) NOT NULL,
+            tag VARCHAR(255),
+            image VARCHAR(255) DEFAULT '',
+            color VARCHAR(255),
+            points BIGINT DEFAULT 0
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
         try
         {
             using var command = new MySqlCommand(sql, _connection);

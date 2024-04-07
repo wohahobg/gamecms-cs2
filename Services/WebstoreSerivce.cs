@@ -20,7 +20,6 @@ public class WebstoreService
 
     private readonly ILogger<HttpServerSerivce> _logger;
     private readonly Helper _helper;
-    private Timer? _timer;
     private readonly HttpClient client = new HttpClient();
     private readonly TimeSpan _interval = TimeSpan.FromSeconds(60); // Interval of 60 seconds
     private string _serverApiKey = string.Empty;
