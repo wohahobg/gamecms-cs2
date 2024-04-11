@@ -43,7 +43,6 @@ public class AdminService
                 {
                     foreach (var group in groups)
                     {
-                        Console.WriteLine(group.immunity);
                         groupsDict[group.name] = new
                         {
                             immunity = group.immunity,
@@ -158,7 +157,7 @@ public class AdminService
             var groupIds = JsonSerializer.Deserialize<List<int>>(groupsJson);
             var ulongGroupIds = groupIds!.ConvertAll(id => (ulong)id);
 
-            return allGroups.Where(g => g.id.HasValue && ulongGroupIds.Contains(g.id.Value)).Select(g => "#" + g.name).ToList()!;
+            return allGroups.Where(g => g.id.HasValue && ulongGroupIds.Contains(g.id.Value)).Select(g => g.name).ToList();
         }
         catch (Exception ex)
         {

@@ -54,15 +54,33 @@ public class Database
 
     private void EnsureConnectionOpen()
     {
-        if (_connection?.State != ConnectionState.Open)
+        try
         {
-            _connection = new MySqlConnection(_connectionString);
-            _connection.Open();
+            if (_connection?.State == ConnectionState.Closed || _connection?.State == ConnectionState.Broken)
+            {
+                _connection?.Dispose();
+                _connection = new MySqlConnection(_connectionString);
+                _connection.Open();
+            }
+        }
+        catch (Exception ex)
+        {
+            //just for debug?
+            Console.WriteLine($"Error ensuring database connection is open: {ex.Message}");
+            try
+            {
+                _connection = new MySqlConnection(_connectionString);
+                _connection.Open();
+            }
+            catch (Exception reconnectEx)
+            {
+                Console.WriteLine($"Reconnection attempt failed: {reconnectEx.Message}");
+                throw;
+            }
         }
     }
 
 
-    // Provides global access to the singleton instance.
     public static Database Instance
     {
         get
@@ -120,7 +138,7 @@ public class Database
         var columns = string.Join(", ", columnNames);
         var values = string.Join(", ", columnParameters);
         var sql = $"INSERT INTO {table} ({columns}) VALUES ({values});";
-        
+
         using var command = new MySqlCommand(sql, _connection);
 
         foreach (var property in properties)

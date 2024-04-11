@@ -21,7 +21,7 @@ public partial class GameCMSPlugin : BasePlugin, IPluginConfig<GameCMSConfig>
     public GameCMSConfig Config { get; set; } = new();
 
     private readonly HttpClient client = new();
-    private int serverId;
+    private int serverId = 0;
     private Helper _helper;
     private WebstoreService _webStoreService;
     private AdminService _adminService;
@@ -102,9 +102,13 @@ public partial class GameCMSPlugin : BasePlugin, IPluginConfig<GameCMSConfig>
     public void OnCommandSyncK4SystemRank(CCSPlayerController? player, CommandInfo command)
     {
 
+        if (serverId == 0)
+        {
+            command.ReplyToCommand("[GameCMS.ORG] Unable to locate the Server ID. Please ensure that your plugin is successfully connected to GameCMS.ORG by reloading the plugin. If the issue persists, verify your configuration settings or contact support for assistance.");
+            return;
+        }
         _ = Task.Run(async () =>
         {
-            // Defining an asynchronous local function within the lambda expression
             async Task TaskSync()
             {
                 try
@@ -164,34 +168,6 @@ public partial class GameCMSPlugin : BasePlugin, IPluginConfig<GameCMSConfig>
                 Logger.LogWarning($"Database error: {ex.Message}");
             }
         });
-
-        try
-        {
-            var moduleFolderName = Path.GetFileName(ModuleDirectory);
-            var filePath = Path.GetFullPath(Path.Combine(Server.GameDirectory, $"csgo/addons/counterstrikesharp/configs/plugins/{moduleFolderName}/{moduleFolderName}.json"));
-            var jsonContent = File.ReadAllText(filePath);
-
-            var currentConfigDict = JsonSerializer.Deserialize<Dictionary<string, object>>(jsonContent);
-            var defaultConfigDict = JsonSerializer.Deserialize<Dictionary<string, object>>(JsonSerializer.Serialize(config));
-
-            var missingKeys = defaultConfigDict!.Keys.Except(currentConfigDict!.Keys).Any();
-            var extraKeys = currentConfigDict.Keys.Except(defaultConfigDict.Keys).Any();
-
-            bool needsUpdate = missingKeys || extraKeys;
-            if (needsUpdate)
-            {
-                var updatedJsonContent = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true }); // Serialize the default config as the updated content
-                File.WriteAllText(filePath, updatedJsonContent);
-            }
-        }
-        catch (JsonException)
-        {
-            // Handle invalid JSON (e.g., log the error or notify the user)
-        }
-        catch (Exception)
-        {
-            // Handle other exceptions
-        }
 
     }
 }
