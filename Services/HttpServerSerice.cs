@@ -248,7 +248,7 @@ public class HttpServerSerivce
             steam_id = player.SteamID,
             account_id = player.AuthorizedSteamID?.AccountId.ToString(),
             ip_address = player.IpAddress,
-
+            joined_time = _helper.GetPlayerFromTimeCollection(player.SteamID),
             is_bot = player.IsBot,
             kills = player.Kills.Count,
             deaths = player.ActionTrackingServices!.MatchStats.Deaths,
