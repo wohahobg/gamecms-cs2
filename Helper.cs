@@ -16,8 +16,22 @@ public class Helper
 {
 
 	private string _directory = string.Empty;
+	private Dictionary<ulong, long> _playersTimeCollection = new Dictionary<ulong, long>();
 
-	public void setDirecotry(string directory){
+	public void AddPlayerToTimeCollection(ulong steam_id)
+	{
+		long currentUnixTimestampSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+		_playersTimeCollection[steam_id] = currentUnixTimestampSeconds;
+	}
+
+	public long GetPlayerFromTimeCollection(ulong steam_id)
+	{
+		_playersTimeCollection.TryGetValue(steam_id, out long timestamp);
+		return timestamp;
+	}
+
+	public void setDirecotry(string directory)
+	{
 		_directory = directory;
 	}
 
@@ -58,19 +72,22 @@ public class Helper
 		long unixTime = ((DateTimeOffset)futureTime).ToUnixTimeSeconds();
 		return unixTime;
 	}
+
 	public long GetTime()
 	{
 		DateTime now = DateTime.UtcNow;
 		long unixTime = ((DateTimeOffset)now).ToUnixTimeSeconds();
 		return unixTime;
 	}
-    public HttpRequestMessage GetServerRequestHeaders(string serverApiKey)
-    {
-        var request = new HttpRequestMessage();
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", serverApiKey);
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        return request;
-    }
+
+	public HttpRequestMessage GetServerRequestHeaders(string serverApiKey)
+	{
+		var request = new HttpRequestMessage();
+		request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", serverApiKey);
+		request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+		return request;
+	}
+
 	public string[] DeserializeJsonStringArray(string json)
 	{
 		if (string.IsNullOrWhiteSpace(json) || json == "{}")
@@ -89,11 +106,10 @@ public class Helper
 		}
 	}
 
-	
-    public string GetFilePath(string path)
-    {
+	public string GetFilePath(string path)
+	{
 		string baseDirectory = Path.Combine(_directory, "csgo/addons/counterstrikesharp");
-        string combinePath = Path.Combine(baseDirectory, path);
-        return Path.GetFullPath(combinePath);
-    }
+		string combinePath = Path.Combine(baseDirectory, path);
+		return Path.GetFullPath(combinePath);
+	}
 }

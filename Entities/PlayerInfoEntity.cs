@@ -8,6 +8,8 @@ public class PlayerInfoEntity
     public string? account_id { get; set; }
     public string? ip_address { get; set; }
 
+    public long joined_time { get; set; } = 0;
+
     // Game-specific information
     public bool is_bot { get; set; }
     public int kills { get; set; }

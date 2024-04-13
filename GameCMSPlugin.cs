@@ -11,21 +11,22 @@ using Microsoft.Extensions.DependencyInjection;
 using static CounterStrikeSharp.API.Core.Listeners;
 using CounterStrikeSharp.API.Modules.Admin;
 using System.Text.RegularExpressions;
+using MySqlConnector;
+using Dapper;
 
 namespace Main;
 public partial class GameCMSPlugin : BasePlugin, IPluginConfig<GameCMSConfig>
 {
     public override string ModuleName => "GameCMS.ORG Plugin";
-    public override string ModuleVersion => "1.0.0";
-
+    public override string ModuleVersion => "1.0.1";
     public GameCMSConfig Config { get; set; } = new();
-
     private readonly HttpClient client = new();
     private int serverId = 0;
     private Helper _helper;
     private WebstoreService _webStoreService;
     private AdminService _adminService;
     private HttpServerSerivce _httpServer;
+
 
     public GameCMSPlugin(Helper helper, WebstoreService webstoreService, AdminService adminService, HttpServerSerivce httpServer)
     {
@@ -49,8 +50,6 @@ public partial class GameCMSPlugin : BasePlugin, IPluginConfig<GameCMSConfig>
     {
         _httpServer.Stop();
     }
-
-
 
     private void OnMapStart(string OnMapStart)
     {
@@ -111,22 +110,22 @@ public partial class GameCMSPlugin : BasePlugin, IPluginConfig<GameCMSConfig>
         {
             async Task TaskSync()
             {
+                await using MySqlConnection connection = await Database.Instance.GetConnection();
                 try
                 {
                     string query = "DELETE FROM gcms_k4systemranks WHERE server_id = @server_id";
-                    var parameters = new Dictionary<string, object> { { "@server_id", serverId } };
-                    await Database.Instance.Delete(query, parameters);
+                    await connection.ExecuteAsync(query, new { server_id = serverId });
 
                     var ranksFilePath = _helper.GetFilePath("plugins/K4-System/ranks.jsonc");
                     var jsonContent = Regex.Replace(File.ReadAllText(ranksFilePath), @"/\*(.*?)\*/|//(.*)", string.Empty, RegexOptions.Multiline);
-                    var rankDictionary = JsonSerializer.Deserialize<Dictionary<string, K4SystemRank>>(jsonContent);
+                    var rankDictionary = JsonSerializer.Deserialize<Dictionary<string, K4SystemRankEntity>>(jsonContent);
 
                     if (rankDictionary == null) return;
 
                     foreach (var rank in rankDictionary.Values)
                     {
                         rank.server_id = serverId;
-                        await Database.Instance.Insert("gcms_k4systemranks", rank);
+                        await Database.Instance.Insert("gcms_k4systemranks", connection, rank);
                     }
                 }
                 catch (Exception ex)
@@ -140,7 +139,19 @@ public partial class GameCMSPlugin : BasePlugin, IPluginConfig<GameCMSConfig>
         command.ReplyToCommand("[GameCMS.ORG] Ranks have been synced successfully");
     }
 
+    [GameEventHandler]
+    public HookResult OnPlayerConnect(EventPlayerConnectFull @event, GameEventInfo info)
+    {
+        CCSPlayerController? player = @event.Userid;
 
+        if (player == null || string.IsNullOrEmpty(player.IpAddress) || player.IpAddress.Contains("127.0.0.1")
+            || player.IsBot || player.IsHLTV || !player.UserId.HasValue)
+            return HookResult.Continue;
+        
+        _helper.AddPlayerToTimeCollection(player.SteamID);
+
+        return HookResult.Continue;
+    }
 
     public void OnConfigParsed(GameCMSConfig config)
     {
@@ -150,7 +161,7 @@ public partial class GameCMSPlugin : BasePlugin, IPluginConfig<GameCMSConfig>
 
         try
         {
-            Database.Initialize(config);
+            Database.Initialize(config, Logger);
             Logger.LogInformation("Connected to the database.");
         }
         catch (Exception ex)

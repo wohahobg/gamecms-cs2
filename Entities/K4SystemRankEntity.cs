@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace Entities;
 
-public class K4SystemRank
+public class K4SystemRankEntity
 {
     [JsonPropertyName("server_id")]
     public int server_id { get; set; }

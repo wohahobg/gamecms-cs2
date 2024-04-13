@@ -1,3 +1,5 @@
+using Dapper;
+using Microsoft.Extensions.Logging;
 using MySqlConnector;
 using System.Data;
 using System.Reflection;
@@ -7,28 +9,19 @@ namespace Main;
 
 public class Database
 {
+    private static ILogger? _logger;
     private static Database? _instance;
     private static readonly object _lock = new object();
-    private MySqlConnection? _connection = null;
     private readonly string _connectionString = string.Empty;
 
     // Private constructor to prevent instance creation outside this class.
     private Database(string connectionString)
     {
         _connectionString = connectionString;
-        try
-        {
-            _connection = new MySqlConnection(_connectionString);
-            _connection.Open();
-        }
-        catch (Exception ex)
-        {
-            throw new Exception(ex.Message);
-        }
     }
 
     // Initializes the Database instance.
-    public static void Initialize(GameCMSConfig config)
+    public static void Initialize(GameCMSConfig config, ILogger logger)
     {
         if (_instance == null)
         {
@@ -43,43 +36,33 @@ public class Database
                         UserID = config.database.username,
                         Password = config.database.password,
                         Port = config.database.port,
+                        Pooling = true,
+                        MinimumPoolSize = 0,
+                        MaximumPoolSize = 640,
+                        ConnectionReset = false,
                         CharacterSet = "utf8mb4"
                     };
-
+                    _logger = logger;
                     _instance = new Database(builder.ConnectionString);
                 }
             }
         }
     }
 
-    private void EnsureConnectionOpen()
+    public async Task<MySqlConnection> GetConnection()
     {
         try
         {
-            if (_connection?.State == ConnectionState.Closed || _connection?.State == ConnectionState.Broken)
-            {
-                _connection?.Dispose();
-                _connection = new MySqlConnection(_connectionString);
-                _connection.Open();
-            }
+            var connection = new MySqlConnection(_connectionString);
+            await connection.OpenAsync();
+            return connection;
         }
         catch (Exception ex)
         {
-            //just for debug?
-            Console.WriteLine($"Error ensuring database connection is open: {ex.Message}");
-            try
-            {
-                _connection = new MySqlConnection(_connectionString);
-                _connection.Open();
-            }
-            catch (Exception reconnectEx)
-            {
-                Console.WriteLine($"Reconnection attempt failed: {reconnectEx.Message}");
-                throw;
-            }
+            Console.WriteLine($"Unable to connect to database: {ex.Message}");
+            throw;
         }
     }
-
 
     public static Database Instance
     {
@@ -93,44 +76,9 @@ public class Database
         }
     }
 
-    public T MapReaderToType<T>(MySqlDataReader reader) where T : new()
+    public async Task<bool> Insert<T>(string table, MySqlConnection connection, T entity) where T : class
     {
-        var item = new T();
-        var properties = typeof(T).GetProperties();
 
-        foreach (var property in properties)
-        {
-            try
-            {
-                if (!reader.IsDBNull(reader.GetOrdinal(property.Name)))
-                {
-                    var value = reader[property.Name];
-                    Type propertyType = property.PropertyType;
-                    Type nullableUnderlyingType = Nullable.GetUnderlyingType(propertyType)!;
-                    if (nullableUnderlyingType != null)
-                    {
-                        var convertedValue = Convert.ChangeType(value, nullableUnderlyingType);
-                        property.SetValue(item, convertedValue);
-                    }
-                    else
-                    {
-                        property.SetValue(item, Convert.ChangeType(value, propertyType));
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[GameCMS.ORG] Error mapping property {property.Name}: {ex.Message}");
-            }
-        }
-
-        return item;
-    }
-
-
-    public async Task<bool> Insert<T>(string table, T entity) where T : class
-    {
-        EnsureConnectionOpen();
         var properties = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
         var columnNames = properties.Select(p => $"`{p.Name}`");
         var columnParameters = properties.Select(p => $"@{p.Name}");
@@ -138,93 +86,14 @@ public class Database
         var columns = string.Join(", ", columnNames);
         var values = string.Join(", ", columnParameters);
         var sql = $"INSERT INTO {table} ({columns}) VALUES ({values});";
-
-        using var command = new MySqlCommand(sql, _connection);
-
-        foreach (var property in properties)
-        {
-            var value = property.GetValue(entity);
-            command.Parameters.AddWithValue($"@{property.Name}", value ?? DBNull.Value);
-        }
-
-        try
-        {
-            var result = await command.ExecuteNonQueryAsync();
-            return result > 0;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An error occurred during the insert operation: {ex.Message}");
-            return false;
-        }
+        var result = await connection.ExecuteAsync(sql, entity);
+        return result > 0;
     }
 
-    public async Task<List<T>> Query<T>(string sql, Dictionary<string, object>? parameters = null) where T : new()
+    public async Task<List<T>> Query<T>(string sql, MySqlConnection connection, object? parameters = null) where T : new()
     {
-        EnsureConnectionOpen();
-        using var command = new MySqlCommand(sql, _connection);
-        if (parameters != null)
-        {
-            foreach (var param in parameters)
-            {
-                command.Parameters.AddWithValue(param.Key, param.Value);
-            }
-        }
-
-        using (var reader = await command.ExecuteReaderAsync())
-        {
-            var result = new List<T>();
-            while (await reader.ReadAsync())
-            {
-                var item = MapReaderToType<T>(reader);
-                result.Add(item);
-            }
-            return result;
-        }
-    }
-
-    public async Task<int> Update(string sql, Dictionary<string, object>? parameters = null)
-    {
-        try
-        {
-            EnsureConnectionOpen();
-            using var command = new MySqlCommand(sql, _connection);
-            if (parameters != null)
-            {
-                foreach (var param in parameters)
-                {
-                    command.Parameters.AddWithValue(param.Key, param.Value);
-                }
-            }
-            return await command.ExecuteNonQueryAsync();
-        }
-        catch (Exception ex)
-        {
-            throw new Exception(ex.Message);
-        }
-    }
-
-
-    public async Task<int> Delete(string sql, Dictionary<string, object>? parameters = null)
-    {
-        try
-        {
-            EnsureConnectionOpen();
-            using var command = new MySqlCommand(sql, _connection);
-            if (parameters != null)
-            {
-                foreach (var param in parameters)
-                {
-                    command.Parameters.AddWithValue(param.Key, param.Value);
-                }
-            }
-            return await command.ExecuteNonQueryAsync();
-        }
-        catch (Exception ex)
-        {
-            throw new Exception(ex.Message);
-        }
-
+        var result = (await connection.QueryAsync<T>(sql, parameters)).ToList();
+        return result;
     }
 
     public async Task CreateTableAsync()
@@ -274,14 +143,13 @@ public class Database
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
         try
         {
-            using var command = new MySqlCommand(sql, _connection);
-            await command.ExecuteNonQueryAsync();
+            await using MySqlConnection connection = await Database.Instance.GetConnection();
+            await connection.QueryAsync(sql);
         }
         catch (Exception ex)
         {
             throw new Exception(ex.Message);
         }
     }
-
 }
 

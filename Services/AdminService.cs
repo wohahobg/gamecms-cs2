@@ -1,15 +1,18 @@
 using System.Data;
 using System.Text.Json;
 using CounterStrikeSharp.API;
+using Dapper;
 using Entities;
 using Main;
 using Microsoft.Extensions.Logging;
+using MySqlConnector;
 
 namespace Services;
 public class AdminService
 {
     private readonly ILogger<AdminService> _logger;
     private readonly Helper _helper;
+    private MySqlConnection? _connection;
 
     public AdminService(ILogger<AdminService> logger, Helper helper)
     {
@@ -23,9 +26,22 @@ public class AdminService
         Task.Run(async () =>
         {
 
-            if (deleteExpiredAdmins)
+            _connection = await Database.Instance.GetConnection();
+
+            try
             {
-                await DeleteExpiredAdminsAsync(serverId);
+                if (deleteExpiredAdmins)
+                {
+                    string query = "DELETE FROM gcms_admins WHERE expiry <> 0 AND expiry < @time";
+                    await _connection.ExecuteAsync(query, new
+                    {
+                        time = _helper.GetTime()
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error deleting admins data: {ex.Message}");
             }
 
             try
@@ -112,32 +128,23 @@ public class AdminService
 
     }
 
-    //Q: Delete only per server ? or everything ?
-    //A: hard to say. Let's keep deleting it globaly.
-    public async Task DeleteExpiredAdminsAsync(int server_id)
-    {
-        string query = "DELETE FROM gcms_admins WHERE expiry <> 0 AND expiry < @time";
-        var parameters = new Dictionary<string, object> { { "@time", _helper.GetTime() } };
-        await Database.Instance.Update(query, parameters);
-    }
-
     private Task<List<AdminEntity>> FetchAllAdmins(int server_id)
     {
         string query = "SELECT * FROM gcms_admins WHERE server_id = @server_id OR server_id = 0";
-        var parameters = new Dictionary<string, object>
-            {
-                {"@server_id", server_id}
-            };
-        return Database.Instance.Query<AdminEntity>(query, parameters);
+        var parameters = new
+        {
+            server_id = server_id
+        };
+        return Database.Instance.Query<AdminEntity>(query, _connection!, parameters);
     }
-    private static Task<List<AdminGroupEntity>> FetchAllGroups(int server_id)
+    private Task<List<AdminGroupEntity>> FetchAllGroups(int server_id)
     {
         string query = "SELECT * FROM gcms_admin_groups WHERE server_id = @server_id OR server_id = 0";
         var parameters = new Dictionary<string, object>
             {
                 {"@server_id", server_id}
             };
-        return Database.Instance.Query<AdminGroupEntity>(query, parameters);
+        return Database.Instance.Query<AdminGroupEntity>(query, _connection!, parameters);
     }
     private Task<List<AdminOverrideEntity>> FetchAllOverrides(int server_id)
     {
@@ -146,7 +153,7 @@ public class AdminService
             {
                 {"@server_id", server_id}
             };
-        return Database.Instance.Query<AdminOverrideEntity>(query, parameters);
+        return Database.Instance.Query<AdminOverrideEntity>(query, _connection!, parameters);
     }
 
     private List<string> ResolveGroupNames(string groupsJson, List<AdminGroupEntity> allGroups)
