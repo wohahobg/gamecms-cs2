@@ -1,4 +1,4 @@
-namespace Entities
+namespace GameCMS
 {
 
     public class AdminEntity
@@ -14,7 +14,6 @@ namespace Entities
         public long expiry { get; set; }
         public long created { get; set; }
     }
-
 
     public class AdminGroupEntity
     {
@@ -34,5 +33,5 @@ namespace Entities
         public string name { get; set; } = string.Empty;
         public string flags { get; set; } = string.Empty;
     }
-}
 
+}

@@ -1,25 +1,27 @@
-using System.Text.Json.Serialization;
-
-namespace Entities;
-
-public class K4SystemRankEntity
+namespace GameCMS
 {
-    [JsonPropertyName("server_id")]
-    public int server_id { get; set; }
+    using System.Text.Json.Serialization;
 
-    [JsonPropertyName("Name")]
-    public string name { get; set; } = string.Empty;
+    public class K4SystemRankEntity
+    {
+        [JsonPropertyName("server_id")]
+        public int server_id { get; set; }
 
-    [JsonPropertyName("Tag")]
-    public string tag { get; set; } = string.Empty;
+        [JsonPropertyName("Name")]
+        public string name { get; set; } = string.Empty;
 
-    [JsonPropertyName("Image")]
-    public string? image { get; set; } = string.Empty;
+        [JsonPropertyName("Tag")]
+        public string tag { get; set; } = string.Empty;
 
-    [JsonPropertyName("Color")]
-    public string color { get; set; } = string.Empty;
+        [JsonPropertyName("Image")]
+        public string? image { get; set; } = string.Empty;
 
-    [JsonPropertyName("Point")]
-    public long points { get; set; } = 0;
+        [JsonPropertyName("Color")]
+        public string color { get; set; } = string.Empty;
+
+        [JsonPropertyName("Point")]
+        public long points { get; set; } = 0;
+
+    }
 
 }

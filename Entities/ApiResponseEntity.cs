@@ -1,5 +1,6 @@
-namespace Entities
+namespace GameCMS
 {
+
     public class CommandDataEntity
     {
         public int id { get; set; }
@@ -18,9 +19,8 @@ namespace Entities
         }
     }
 
-}
-namespace Entities
-{
+
+
     public class CommandsResponseEntity
     {
         public int status { get; set; }
@@ -32,9 +32,7 @@ namespace Entities
             this.data = data;
         }
     }
-}
-namespace Entities
-{
+
     public class ServerResponseEntity
     {
 
@@ -46,4 +44,5 @@ namespace Entities
         }
 
     }
+
 }
