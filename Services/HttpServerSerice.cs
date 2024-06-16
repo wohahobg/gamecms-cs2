@@ -20,7 +20,7 @@ namespace GameCMS
         private readonly ILogger<HttpServerSerivce> _logger;
         private readonly Helper _helper;
 
-        private string serverApiKey = string.Empty;
+        private string _serverApiKey = string.Empty;
         private bool isRunning = false;
         private readonly object syncLock = new object();
 
@@ -363,11 +363,12 @@ namespace GameCMS
             }
 
             string token = authHeader.Substring("Bearer ".Length).Trim();
-            return token == serverApiKey;
+            return token == _serverApiKey;
         }
 
         public void Start(int port, string serverApiKey)
         {
+            _serverApiKey = serverApiKey;
             lock (syncLock)
             {
                 if (isRunning)

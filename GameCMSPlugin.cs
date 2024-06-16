@@ -113,6 +113,16 @@
             return 0; // Return 0 in case of any exceptions, including timeout
         }
 
+
+
+        [ConsoleCommand("css_gcms_reload_admins")]
+        [CommandHelper(minArgs: 0, whoCanExecute: CommandUsage.CLIENT_AND_SERVER)]
+        [RequiresPermissions("@css/root")]
+        public void OnCMSReloadAdmins(CCSPlayerController? player, CommandInfo command)
+        {
+            _adminService.ProgressAdminsData(serverId, Config.DeleteExpiredAdmins);
+        }
+
         [ConsoleCommand("css_gcms_k4syncranks")]
         [CommandHelper(minArgs: 0, whoCanExecute: CommandUsage.CLIENT_AND_SERVER)]
         [RequiresPermissions("@css/root")]

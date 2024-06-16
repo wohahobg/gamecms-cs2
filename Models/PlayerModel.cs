@@ -2,6 +2,7 @@ namespace GameCMS.Models
 {
 
     using CounterStrikeSharp.API.Core;
+    using CounterStrikeSharp.API.Modules.Utils;
     using Microsoft.Extensions.Logging;
 
     public class PlayerModel
@@ -36,6 +37,10 @@ namespace GameCMS.Models
             {
                 return !_controller.IsBot && !_controller.IsHLTV;
             }
+        }
+
+        public CsTeam GetPlayerTeam(){
+            return _controller.Team;
         }
 
     }

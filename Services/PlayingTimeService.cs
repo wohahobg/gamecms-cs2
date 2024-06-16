@@ -97,14 +97,8 @@ namespace GameCMS
 
                 if (@event.Reason != 1)
                 {
-                    Task.Run(() => SavePlayerDataAsync(playerModel, true));
+                    Task.Run(() => SavePlayerDataAsync(playerModel));
                 }
-
-                playerData.Times = new Dictionary<string, DateTime>
-                {
-                    { "Team", now },
-                };
-
                 return HookResult.Continue;
             });
 
@@ -127,162 +121,34 @@ namespace GameCMS
 
                 playerData.Times["Team"] = now;
 
-                // _logger.LogInformation($"(CT) {playerModel.PlayerName} {playerData.TimeFields["ct"]}");
-                // _logger.LogInformation($"(T) {playerModel.PlayerName} {playerData.TimeFields["t"]}");
-                // _logger.LogInformation($"(SPEC) {playerModel.PlayerName} {playerData.TimeFields["spec"]}");
-
                 return HookResult.Continue;
             });
 
-            _plugin.RegisterEventHandler((EventRoundStart @event, GameEventInfo info) =>
+            _plugin.RegisterEventHandler((EventPlayerDeath @event, GameEventInfo info) =>
             {
-                // Check if the event was fired within the last 3 seconds
-                // This fixes the duplicated round start being fired by the game
-                if ((DateTime.Now - lastRoundStartEventTime).TotalSeconds < 3)
+                PlayerModel? playerModel = GetPlayer(@event.Userid);
+                if (playerModel is null || !playerModel.IsValid || !playerModel.IsPlayer)
                     return HookResult.Continue;
 
-                lastRoundStartEventTime = DateTime.Now;
-                // DateTime now = _helper.GetTimeNow();
-                // foreach (PlayerModel playerModel in Players)
-                // {
-                //     if (!playerModel.IsValid || !playerModel.IsPlayer)
-                //         continue;
 
-                //     if (playerModel._controller.IsBot || playerModel._controller.IsHLTV)
-                //         continue;
+                TimeData? playerData = playerModel.TimeData;
 
-                //     TimeData? playerData = playerModel.TimeData;
+                if (playerData is null) return HookResult.Continue;
 
-                //     if (playerData == null) continue;
-
-                //     playerData.TimeFields[GetFieldForTeam(playerModel._controller.Team)] += (int)(now - playerData.Times["Team"]).TotalSeconds;
-                //     playerData.Times["Team"] = now; // This might need to be inside the if block
-                // }
+                DateTime now = _helper.GetTimeNow();
+                playerData.TimeFields[GetFieldForTeam(playerModel.GetPlayerTeam())] += (int)(now - playerData.Times["Team"]).TotalSeconds;
+                playerData.Times["Team"] = now;
 
                 return HookResult.Continue;
             });
 
             _plugin.RegisterEventHandler((EventRoundEnd @event, GameEventInfo info) =>
             {
-
                 Task.Run(SaveAllPlayersDataAsync);
-                // Task.Run(async () =>  SaveAllPlayersDataAsync());
-                // Server.NextFrame(async () => // Ensure this can handle async delegates or consider alternatives if not
-                //     {
-                //         DateTime now = _helper.GetTimeNow();
-                //         foreach (PlayerModel playerModel in Players)
-                //         {
-                //             TimeData? playerData = playerModel.TimeData;
-
-                //             if (playerData != null)
-                //             {
-                //                 playerData.TimeFields[GetFieldForTeam(playerModel._controller.Team)] += (int)(now - playerData.Times["Team"]).TotalSeconds;
-                //                 //_logger.LogInformation($"Updated time for {playerModel.PlayerName}");
-                //                 playerData.Times["Team"] = now; // This might need to be inside the if block
-                //             }
-                //         }
-                //         await SaveAllPlayersDataAsync();
-                //     });
-
                 return HookResult.Continue;
             }, HookMode.Post);
 
-            //Task.Run(TimeCheckLoop);
-
         }
-
-        private void TimeCheckLoop()
-        {
-
-            //TOOD:
-            //Make so if there are online players
-            //at 23:59 utc time to save all date in the database
-            //so in that way after 00:00 there will be new data.
-
-
-            // DateTime lastChecked = DateTime.UtcNow;
-
-            // while (!_stopRequested)
-            // {
-            //     DateTime now = _helper.GetTimeNow();
-            //     if ((now - lastChecked).TotalMinutes >= 2)
-            //     {
-            //         // More than a minute has passed since the last action
-            //         Task.Run(() => SaveAllPlayersCronAsync());
-            //         lastChecked = now; // Update lastActionTime to the current time
-            //     }
-
-
-            //     // Wait for a short period before checking again to avoid excessive CPU usage
-            //     // This delay is much shorter than a minute to improve the responsiveness of the loop
-            //     // to the _stopRequested flag and to account for the time drift in action execution.
-            //     Task.Delay(TimeSpan.FromSeconds(5)).Wait();
-            // }
-
-            // while (!_stopRequested)
-            // {
-            //     DateTime now = _helper.GetTimeNow();
-            //     if (now.Date > lastChecked.Date)
-            //     {
-            //         // New day has started, reset lastChecked
-            //         lastChecked = now;
-            //     }
-            //     else if (now.Hour == 23 && now.Minute == 59 && lastChecked < now.AddMinutes(-1))
-            //     {
-            //         // It's 23:59 and we haven't performed the action in the last minute
-            //         Task.Run(() => SaveAllPlayersCronAsync());
-            //         lastChecked = now; // Prevents action from being repeated the next minute
-            //     }
-
-            //     // Wait for about a minute before checking again
-            //     Task.Delay(TimeSpan.FromMinutes(1)).Wait();
-            // }
-        }
-
-
-        public async Task SaveAllPlayersCronAsync()
-        {
-            _logger.LogInformation("SaveAllPlayersCron");
-            if (Players.Count == 0) return;
-
-            List<PlayerModel> copiedPlayers = new List<PlayerModel>(Players); // Make a copy to iterate over
-            Players.Clear(); // Assuming clearing the list is intentional and necessary
-
-            using (var connection = await Database.Instance.GetConnection())
-            using (var transaction = await connection.BeginTransactionAsync())
-            {
-                _logger.LogInformation("Start SaveAllPlayersCron");
-
-                try
-                {
-                    DateTime now = _helper.GetTimeNow();
-                    foreach (PlayerModel playerModel in copiedPlayers)
-                    {
-
-                        TimeData? playerData = playerModel.TimeData;
-
-                        if (playerData != null)
-                        {
-                            playerData.TimeFields[GetFieldForTeam(playerModel._controller.Team)] += (int)(now - playerData.Times["Team"]).TotalSeconds;
-                            _logger.LogInformation($"Updated time for {playerModel.PlayerName}");
-                        }
-                        await ExecuteTimeUpdateAsync(playerModel, transaction);
-                    }
-                    await transaction.CommitAsync();
-                    _logger.LogInformation("Transaction committed");
-                }
-                catch (Exception ex)
-                {
-                    await transaction.RollbackAsync();
-                    _logger.LogError($"An error occurred while saving all players data: {ex.Message}");
-                }
-            }
-
-            // Reload players cache after updates
-            //Server.NextFrame(() => LoadAllPlayersCache());
-            _logger.LogInformation("Start END");
-        }
-
 
         private string GetFieldForTeam(CsTeam team)
         {
@@ -341,8 +207,6 @@ namespace GameCMS
 
                 LoadPlayerRowToCache(playerModel, playerData);
 
-
-
                 if (GetPlayer(playerModel.SteamID) == null)
                 {
                     Players.Add(playerModel);
@@ -365,7 +229,6 @@ namespace GameCMS
 
                 // _logger.LogWarning($"Loading row cache for {playerData.username} starting.");
 
-
                 Dictionary<string, int> TimeFields = new Dictionary<string, int>();
                 string[] timeFieldNames = { "ct", "t", "spec" };
                 foreach (string timeField in timeFieldNames)
@@ -381,15 +244,10 @@ namespace GameCMS
                         { "Team",  now}
                     }
                 };
-
-                // _logger.LogWarning($"T {rowDictionary["t"]}.");
-                // _logger.LogWarning($"CT {rowDictionary["ct"]}.");
-                // _logger.LogWarning($"SPEC {rowDictionary["spec"]}.");
-                // _logger.LogWarning($"Loading row cache for {playerData.username} end.");
             }
         }
 
-        private async Task SavePlayerDataAsync(PlayerModel playerModel, bool remove)
+        private async Task SavePlayerDataAsync(PlayerModel playerModel)
         {
             using var connection = await Database.Instance.GetConnection();
             var transaction = await connection.BeginTransactionAsync();
@@ -438,12 +296,6 @@ namespace GameCMS
                 t = playerModel.TimeData?.TimeFields["t"],
                 spec = playerModel.TimeData?.TimeFields["spec"]
             });
-
-
-            // _logger.LogInformation($"Saving plyer {playerModel.PlayerName}");
-            // _logger.LogInformation($"Saving plyer CT {playerModel.TimeData?.TimeFields["ct"]}");
-            // _logger.LogInformation($"Saving plyer T {playerModel.TimeData?.TimeFields["t"]}");
-            // _logger.LogInformation($"Saving plyer SPEC {playerModel.TimeData?.TimeFields["spec"]}");
             try
             {
                 await transaction.Connection.ExecuteAsync(query, dynamicParameters, transaction);
@@ -457,16 +309,36 @@ namespace GameCMS
         public async Task SaveAllPlayersDataAsync()
         {
             if (Players.Count == 0) return;
-
+            
             using var connection = await Database.Instance.GetConnection();
             var transaction = await connection.BeginTransactionAsync();
+
             try
             {
-                List<PlayerModel> CopiedPlayers = Players;
-                foreach (PlayerModel playerModel in CopiedPlayers)
+                var updates = Players.Select(playerModel => new
                 {
-                    await ExecuteTimeUpdateAsync(playerModel, transaction);
-                }
+                    SteamId = playerModel.SteamID,
+                    Username = playerModel.PlayerName,
+                    ServerId = _serverId,
+                    TodayDate = _helper.GetDate(),
+                    TodayUnixTimestamp = _helper.GetTime(),
+                    Ct = playerModel.TimeData?.TimeFields["ct"],
+                    T = playerModel.TimeData?.TimeFields["t"],
+                    Spec = playerModel.TimeData?.TimeFields["spec"]
+                }).ToList();
+
+                string query = @"INSERT INTO gcms_players_times 
+                         (`steam_id`, `username`, `server_id`, `date`, `ct`, `t`, `spec`, `time`)
+                         VALUES 
+                         (@SteamId, @Username, @ServerId, @TodayDate, @Ct, @T, @Spec, @TodayUnixTimestamp)
+                         ON DUPLICATE KEY UPDATE 
+                             `username` = VALUES(`username`),
+                             `ct` = VALUES(`ct`),
+                             `t` = VALUES(`t`),
+                             `spec` = VALUES(`spec`),
+                             `time` = VALUES(`time`);";
+
+                var rowsAffected = await connection.ExecuteAsync(query, updates, transaction);
                 await transaction.CommitAsync();
             }
             catch (Exception ex)
@@ -474,10 +346,9 @@ namespace GameCMS
                 await transaction.RollbackAsync();
                 _logger.LogError($"An error occurred while saving all players data: {ex.Message}");
             }
-
-
-
         }
+
+
 
         public void LoadAllPlayersCache()
         {
