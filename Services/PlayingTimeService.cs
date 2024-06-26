@@ -124,24 +124,6 @@ namespace GameCMS
                 return HookResult.Continue;
             });
 
-            _plugin.RegisterEventHandler((EventPlayerDeath @event, GameEventInfo info) =>
-            {
-                PlayerModel? playerModel = GetPlayer(@event.Userid);
-                if (playerModel is null || !playerModel.IsValid || !playerModel.IsPlayer)
-                    return HookResult.Continue;
-
-
-                TimeData? playerData = playerModel.TimeData;
-
-                if (playerData is null) return HookResult.Continue;
-
-                DateTime now = _helper.GetTimeNow();
-                playerData.TimeFields[GetFieldForTeam(playerModel.GetPlayerTeam())] += (int)(now - playerData.Times["Team"]).TotalSeconds;
-                playerData.Times["Team"] = now;
-
-                return HookResult.Continue;
-            });
-
             _plugin.RegisterEventHandler((EventRoundEnd @event, GameEventInfo info) =>
             {
                 Task.Run(SaveAllPlayersDataAsync);

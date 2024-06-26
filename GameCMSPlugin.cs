@@ -59,6 +59,7 @@
             }
 
         }
+
         public override void Unload(bool hotReload)
         {
             _httpServer.Stop();
@@ -113,6 +114,14 @@
             return 0; // Return 0 in case of any exceptions, including timeout
         }
 
+
+        [ConsoleCommand("css_gcms_force_store")]
+        [CommandHelper(minArgs: 0, whoCanExecute: CommandUsage.CLIENT_AND_SERVER)]
+        [RequiresPermissions("@css/root")]
+        public void OnCMSForceStoreCommands(CCSPlayerController? player, CommandInfo command)
+        {
+            _webStoreService.TryToFetchStoreCommands(true);
+        }
 
 
         [ConsoleCommand("css_gcms_reload_admins")]

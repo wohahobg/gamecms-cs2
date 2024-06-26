@@ -14,6 +14,7 @@ namespace GameCMS
         private readonly ILogger<HttpServerSerivce> _logger;
         private readonly Helper _helper;
         private readonly HttpClient client = new HttpClient();
+        private System.Threading.Timer _timer;
         private readonly TimeSpan _interval = TimeSpan.FromSeconds(60); // Interval of 60 seconds
         private string _serverApiKey = string.Empty;
 
@@ -23,28 +24,25 @@ namespace GameCMS
             _helper = helper;
         }
 
-
         public void ListenForCommands(string ServerApiKey)
         {
-
-
-            _logger.LogInformation("Start lising for websotre commands");
+            _logger.LogInformation("Start listening for webstore commands");
             _serverApiKey = ServerApiKey;
+
             var startTimeSpan = TimeSpan.Zero;
-            var periodTimeSpan = TimeSpan.FromMinutes(1);
-            var timer = new System.Threading.Timer((e) =>
+            var periodTimeSpan = _interval;
+            _timer = new System.Threading.Timer((e) =>
             {
                 TryToFetchStoreCommands();
             }, null, startTimeSpan, periodTimeSpan);
-
         }
 
-        public void TryToFetchStoreCommands()
+        public void TryToFetchStoreCommands(bool manual = false)
         {
-            _ = FetchStoreCommands();
+            _ = FetchStoreCommands(manual);
         }
 
-        private async Task FetchStoreCommands()
+        private async Task FetchStoreCommands(bool manual)
         {
             var url = "https://api.gamecms.org/v2/commands/queue/cs2";
             HttpRequestMessage request = _helper.GetServerRequestHeaders(_serverApiKey);
@@ -55,6 +53,10 @@ namespace GameCMS
                 var response = await client.SendAsync(request);
                 if (response.StatusCode != HttpStatusCode.OK)
                 {
+                    if (manual)
+                    {
+                        _logger.LogInformation($"No commands to process. For API Key: {_serverApiKey}");
+                    }
                     return;
                 }
 
@@ -65,6 +67,8 @@ namespace GameCMS
 
                 List<int> executedCommandIds = new List<int>();
 
+                _logger.LogInformation($"Fetched {apiResponse.data.Count} commands from the server.");
+                
                 foreach (var commandData in apiResponse.data)
                 {
                     ProgressStoreCommands(commandData, executedCommandIds);
