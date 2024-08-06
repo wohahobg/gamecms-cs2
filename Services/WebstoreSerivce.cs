@@ -68,10 +68,10 @@ namespace GameCMS
                 List<int> executedCommandIds = new List<int>();
 
                 _logger.LogInformation($"Fetched {apiResponse.data.Count} commands from the server.");
-                
+
                 foreach (var commandData in apiResponse.data)
                 {
-                    ProgressStoreCommands(commandData, executedCommandIds);
+                    await ProgressStoreCommandsAsync(commandData, executedCommandIds);
                 }
                 await MarkCommandsAsCompleted(executedCommandIds);
             }
@@ -86,33 +86,30 @@ namespace GameCMS
             }
         }
 
-        private void ProgressStoreCommands(CommandDataEntity commandData, List<int> executedCommandIds)
+        private async Task ProgressStoreCommandsAsync(CommandDataEntity commandData, List<int> executedCommandIds)
         {
             // Check if the player must be online
             if (commandData.must_be_online)
             {
-                CheckIfPlayerOnline(commandData.steam_id, isOnline =>
+                bool isOnline = await CheckIfPlayerOnline(commandData.steam_id);
+                if (isOnline)
                 {
-                    if (isOnline)
-                    {
-                        ExecuteStoreCommands(commandData);
-                        executedCommandIds.Add(commandData.id);
-                    }
-                });
+                    ExecuteStoreCommands(commandData, executedCommandIds);
+                }
             }
             else
             {
-                ExecuteStoreCommands(commandData);
-                executedCommandIds.Add(commandData.id);
+                ExecuteStoreCommands(commandData, executedCommandIds);
             }
         }
 
-        private void ExecuteStoreCommands(CommandDataEntity commandData)
+        private void ExecuteStoreCommands(CommandDataEntity commandData, List<int> executedCommandIds)
         {
             foreach (var command in commandData.commands)
             {
                 Server.NextWorldUpdate(() => Server.ExecuteCommand(command));
             }
+            executedCommandIds.Add(commandData.id);
         }
         private async Task MarkCommandsAsCompleted(List<int> commandIds)
         {
@@ -126,7 +123,7 @@ namespace GameCMS
             request.Method = HttpMethod.Post;
 
             var jsonContent = JsonSerializer.Serialize(commandIds);
-
+    
             var formData = new Dictionary<string, string> { { "ids", jsonContent } };
 
             request.Content = new FormUrlEncodedContent(formData);
@@ -144,17 +141,18 @@ namespace GameCMS
                 Console.WriteLine("Exception in MarkCommandsAsCompleted: " + ex.Message);
             }
         }
-
-        private void CheckIfPlayerOnline(ulong steam_id, Action<bool> callback)
+        private async Task<bool> CheckIfPlayerOnline(ulong steam_id)
         {
+            TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
 
             Server.NextFrame(() =>
             {
                 CCSPlayerController? playerController = Utilities.GetPlayerFromSteamId(steam_id);
                 bool isOnline = playerController != null;
-
-                callback(isOnline);
+                tcs.SetResult(isOnline);
             });
+
+            return await tcs.Task;
         }
 
 
