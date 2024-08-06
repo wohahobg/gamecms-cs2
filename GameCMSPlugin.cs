@@ -18,7 +18,7 @@
     public sealed partial class GameCMSPlugin : BasePlugin, IPluginConfig<GameCMSConfig>
     {
         public override string ModuleName => "GameCMS.ORG";
-        public override string ModuleVersion => "1.0.3";
+        public override string ModuleVersion => "1.0.4";
         public override string ModuleAuthor => "GameCMS.ORG (Wohaho)";
         public override string ModuleDescription => "Plugin that allows you to connect your CS2 Server with the platform. Made with love. Keep it simple - GameCMS.ORG";
         public GameCMSConfig Config { get; set; } = new();
