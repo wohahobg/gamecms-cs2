@@ -116,5 +116,6 @@ namespace GameCMS
 			string combinePath = Path.Combine(baseDirectory, path);
 			return Path.GetFullPath(combinePath);
 		}
+
 	}
 }

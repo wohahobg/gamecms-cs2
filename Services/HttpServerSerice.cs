@@ -451,8 +451,6 @@ namespace GameCMS
                 {("/command", "POST"), HandleCommandsRoute},
                 {("/players", "GET"), HandlePlayersRoute},
 
-
-
                 {("/main-configs/admins", "GET"), (context) => HandleGetFile(context, "Admins")},
                 {("/main-configs/admins", "POST"), (context) => HandleUpdateFile(context, "Admins") },
 
@@ -467,10 +465,9 @@ namespace GameCMS
                 {("/main-configs/admins/overrides/list", "GET"), (context) => HandleGetFileKeys(context, "AdminOverrides")},
                 {("/main-configs/admins/overrides", "POST"), (context) => HandleUpdateFile(context, "AdminOverrides") },
 
-                // {("/vipcore/groups", "GET"),  (context) => HandleGetFile(context, "VipCoreGroups") },
-                // {("/vipcore/groups", "POST"), (context) => HandleUpdateFile(context, "VipCoreGroups") },
-                // {("/vipcore/server-id", "GET"), (context) => new VIPCoreHelper(this).GetVipCoreServerId(context)},
-                // {("/vipcore/modules", "GET"), (context) => new VIPCoreHelper(this).GetVipCoreFolders(context)}
+                {("/vipcore/groups", "GET"),  (context) => HandleGetFile(context, "VipCoreGroups") },
+                {("/vipcore/groups", "POST"), (context) => HandleUpdateFile(context, "VipCoreGroups") },
+                {("/vipcore/server", "GET"), (context) => new VIPCoreHelper(this).GetVipCoreServer(context)},
             };
         }
 
