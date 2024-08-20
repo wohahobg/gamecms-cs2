@@ -8,7 +8,7 @@
     <GenerateDependencyFile>false</GenerateDependencyFile>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,10 +19,12 @@
     </PackageReference>
     <PackageReference Include="Dapper" Version="2.1.44" />
     <PackageReference Include="MySqlConnector" Version="2.3.6" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
     <ItemGroup>
     <Reference Include="VipCoreApi">
       <HintPath>C:\Users\ovcha\Desktop\gamecms-cs2\shared-apis\VipCoreApi.dll</HintPath>
+      <Private>false</Private>
     </Reference>
   </ItemGroup>
 </Project>

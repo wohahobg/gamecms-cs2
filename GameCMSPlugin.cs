@@ -14,6 +14,7 @@
     using System.Text.RegularExpressions;
     using MySqlConnector;
     using Dapper;
+    using CounterStrikeSharp.API.Modules.Cvars;
 
     public sealed partial class GameCMSPlugin : BasePlugin, IPluginConfig<GameCMSConfig>
     {
@@ -24,12 +25,15 @@
         public GameCMSConfig Config { get; set; } = new();
         private readonly HttpClient client = new();
         private int serverId = 0;
+        private bool dbConnected = false;
         private Helper _helper;
         private WebstoreService _webStoreService;
         private AdminService _adminService;
         private HttpServerSerivce _httpServer;
 
         private PlayingTimeService _playingTimeService;
+
+        private string API_URI_BASE = "https://api.gamecms.org/v2";
 
 
         public GameCMSPlugin(Helper helper, WebstoreService webstoreService, AdminService adminService, HttpServerSerivce httpServer, PlayingTimeService playingTimeService)
@@ -47,7 +51,7 @@
             int ServerHttpPort = Config.ServerHttpPort;
             string serverApiKey = Config.ServerApiKey;
             _httpServer.Start(ServerHttpPort, serverApiKey);
-            _webStoreService.ListenForCommands(serverApiKey);
+            _webStoreService.ListenForCommands(serverApiKey, API_URI_BASE);
             _playingTimeService.Start(hotReload, serverId);
 
             //load all player cache.
@@ -68,11 +72,6 @@
 
         }
 
-        private void OnMapStart(string OnMapStart)
-        {
-            //serverId = GetServerId();
-            // _adminService.ProgressAdminsData(serverId, Config.DeleteExpiredAdmins);
-        }
 
         public int GetServerId()
         {
@@ -81,7 +80,7 @@
 
         private int SetServerId()
         {
-            var url = "https://api.gamecms.org/v2/cs2/server";
+            var url = $"{API_URI_BASE}/server";
             HttpRequestMessage request = _helper.GetServerRequestHeaders(Config.ServerApiKey);
             request.RequestUri = new Uri(url);
             request.Method = HttpMethod.Get;
@@ -105,29 +104,130 @@
             catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
             {
                 Logger.LogWarning("The request timed out. Please check your network connection or try again later.");
-                // Specifically catching the TaskCanceledException that results from a timeout
             }
             catch (Exception ex)
             {
                 Logger.LogError(ex, "Failed to get server ID.");
             }
-            return 0; // Return 0 in case of any exceptions, including timeout
+            return 0;
         }
 
 
-        [ConsoleCommand("css_gcms_force_store")]
+        [ConsoleCommand("css_gcms_store_force")]
         [CommandHelper(minArgs: 0, whoCanExecute: CommandUsage.CLIENT_AND_SERVER)]
         [RequiresPermissions("@css/root")]
-        public void OnCMSForceStoreCommands(CCSPlayerController? player, CommandInfo command)
+        public void onCommandStoreForce(CCSPlayerController? player, CommandInfo command)
         {
             _webStoreService.TryToFetchStoreCommands(true);
+        }
+
+        [ConsoleCommand("css_gcms_server_verify")]
+        [CommandHelper(minArgs: 1, usage: "<server-api-key>", whoCanExecute: CommandUsage.CLIENT_AND_SERVER)]
+        [RequiresPermissions("@css/root")]
+        public void onCommandServerVerifyAsync(CCSPlayerController? player, CommandInfo command)
+        {
+            var moduleFolderName = Path.GetFileName(ModuleDirectory);
+            var filePath = _helper.GetFilePath($"configs/plugins");
+            filePath = _helper.GetFilePath($"{filePath}/{moduleFolderName}");
+            filePath = _helper.GetFilePath($"{filePath}/{moduleFolderName}.json");
+
+
+
+            if (!_httpServer.IsHttpServerRunning())
+            {
+                command.ReplyToCommand("GameCMS is no listening for requiests, please ensure you have entered free and open ServerHttpPort, and you have give your server a restart.");
+                return;
+            }
+
+            if (!dbConnected)
+            {
+                command.ReplyToCommand("Database not connected! Please ensure you have connected your database. Before run this command.");
+                return;
+            }
+
+            string ServerKey = command.GetArg(1);
+
+            if (ServerKey.Length < 64)
+            {
+                command.ReplyToCommand("Invalid Server API Key! Please ensure you have copied the right Server API Key!");
+                return;
+            }
+
+            var url = $"{API_URI_BASE}/server-verify/cs2";
+
+            HttpRequestMessage request = _helper.GetServerRequestHeaders(ServerKey);
+            request.RequestUri = new Uri(url);
+            request.Method = HttpMethod.Post;
+
+            var address = _helper.GetServerIp();
+            var port = ConVar.Find("hostport")?.GetPrimitiveValue<int>()!.ToString() ?? "27015"; 
+            var httpPort = Config.ServerHttpPort;
+
+            string encryptionKey = ServerKey.Substring(0, 32);
+            var formData = new Dictionary<string, string>
+                {
+                    { "address", address },
+                    { "port", port.ToString() },
+                    { "httpPort", httpPort.ToString() },
+                    { "dbHost", _helper.EncryptString(Config.database.host, encryptionKey) },
+                    { "dbPort", _helper.EncryptString(Config.database.port.ToString(), encryptionKey) },
+                    { "dbName", _helper.EncryptString(Config.database.name, encryptionKey) },
+                    { "dbUsername", _helper.EncryptString(Config.database.username, encryptionKey) },
+                    { "dbPassword", _helper.EncryptString(Config.database.password, encryptionKey) }
+                };
+
+            request.Content = new FormUrlEncodedContent(formData);
+            try
+            {
+                var responseTask = client.SendAsync(request).ConfigureAwait(false);
+                var response = responseTask.GetAwaiter().GetResult();
+                var readTask = response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                string responseBody = readTask.GetAwaiter().GetResult();
+                if (response.StatusCode == HttpStatusCode.OK)
+                {
+                    var apiResponse = JsonSerializer.Deserialize<ServerResponseEntity>(responseBody);
+                    if (apiResponse != null)
+                    {
+                        serverId = apiResponse.id;
+                        Config.ServerApiKey = ServerKey;
+                        string jsonString = JsonSerializer.Serialize(Config, new JsonSerializerOptions { WriteIndented = true });
+                        File.WriteAllText(filePath, jsonString);
+                        command.ReplyToCommand($"[GameCMS.ORG] Server verified successfully!");
+                    }
+                    else
+                    {
+                        command.ReplyToCommand("[GameCMS.ORG] Server verification failed: Unexpected response from the server.");
+                    }
+                }
+                else
+                {
+
+                    var apiResponse = JsonSerializer.Deserialize<ServerVerifyResponseEntity>(responseBody);
+                    string message = "[GameCMS.ORG] Server verification failed: Unexpected error occurred";
+                    if (apiResponse != null)
+                    {
+                        message = $"[GameCMS.ORG] {apiResponse.message}";
+                    }
+                    command.ReplyToCommand(message);
+                }
+            }
+            catch (Exception ex)
+            {
+                command.ReplyToCommand($"[GameCMS.ORG] Exception occurred during server verification: {ex.Message}");
+            }
+
+
+
+
+
+
         }
 
 
         [ConsoleCommand("css_gcms_reload_admins")]
         [CommandHelper(minArgs: 0, whoCanExecute: CommandUsage.CLIENT_AND_SERVER)]
         [RequiresPermissions("@css/root")]
-        public void OnCMSReloadAdmins(CCSPlayerController? player, CommandInfo command)
+        public void onCommandReloadAdmins(CCSPlayerController? player, CommandInfo command)
         {
             _adminService.ProgressAdminsData(serverId, Config.DeleteExpiredAdmins);
         }
@@ -199,6 +299,7 @@
             try
             {
                 Database.Initialize(config, Logger);
+                dbConnected = true;
                 Logger.LogInformation("Connected to the database.");
             }
             catch (Exception ex)

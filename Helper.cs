@@ -1,7 +1,12 @@
 namespace GameCMS
 {
 
+
+	using System;
+	using System.Security.Cryptography;
+	using System.Text;
 	using System.Net.Http.Headers;
+	using System.Runtime.InteropServices;
 	using System.Text.Json;
 	using System.Text.RegularExpressions;
 	using CounterStrikeSharp.API;
@@ -12,7 +17,43 @@ namespace GameCMS
 	{
 
 		private string _directory = string.Empty;
+
+		public delegate nint CNetworkSystem_UpdatePublicIp(nint a1);
+		public static CNetworkSystem_UpdatePublicIp? _networkSystemUpdatePublicIp;
+
+
 		private Dictionary<ulong, long> _playersTimeCollection = new Dictionary<ulong, long>();
+
+
+		// This method is taken from 
+		//https://github.com/daffyyyy/CS2-SimpleAdmin/blob/main/Helper.cs
+		//thanks to daffyyyy
+		public string GetServerIp()
+		{
+			var networkSystem = NativeAPI.GetValveInterface(0, "NetworkSystemVersion001");
+
+			unsafe
+			{
+				if (_networkSystemUpdatePublicIp == null)
+				{
+					var funcPtr = *(nint*)(*(nint*)(networkSystem) + 256);
+					_networkSystemUpdatePublicIp = Marshal.GetDelegateForFunctionPointer<CNetworkSystem_UpdatePublicIp>(funcPtr);
+				}
+				/*
+				struct netadr_t
+				{
+				   uint32_t type
+				   uint8_t ip[4]
+				   uint16_t port
+				}
+				*/
+				// + 4 to skip type, because the size of uint32_t is 4 bytes
+				var ipBytes = (byte*)(_networkSystemUpdatePublicIp(networkSystem) + 4);
+				// port is always 0, use the one from convar "hostport"
+				return $"{ipBytes[0]}.{ipBytes[1]}.{ipBytes[2]}.{ipBytes[3]}";
+			}
+		}
+
 
 		public void AddPlayerToTimeCollection(ulong steam_id)
 		{
@@ -90,6 +131,33 @@ namespace GameCMS
 			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", serverApiKey);
 			request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 			return request;
+		}
+
+		public string EncryptString(string text, string key)
+		{
+			// Ensure the key is 32 bytes long for AES-256
+			using (Aes aes = Aes.Create())
+			{
+				aes.Key = Encoding.UTF8.GetBytes(key.Substring(0, 32));  // Use first 32 bytes (64 hex characters)
+				aes.GenerateIV();
+				aes.Mode = CipherMode.CBC;
+
+				ICryptoTransform encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
+
+				using (System.IO.MemoryStream ms = new System.IO.MemoryStream())
+				{
+					ms.Write(aes.IV, 0, aes.IV.Length); // Prepend IV to the ciphertext
+					using (CryptoStream cs = new CryptoStream(ms, encryptor, CryptoStreamMode.Write))
+					{
+						using (StreamWriter sw = new StreamWriter(cs))
+						{
+							sw.Write(text);
+						}
+					}
+
+					return Convert.ToBase64String(ms.ToArray());
+				}
+			}
 		}
 
 		public string[] DeserializeJsonStringArray(string json)

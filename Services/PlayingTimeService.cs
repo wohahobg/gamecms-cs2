@@ -39,7 +39,7 @@ namespace GameCMS
             _logger.LogInformation("Starting playing time service");
             _plugin.RegisterEventHandler((EventPlayerConnectFull @event, GameEventInfo info) =>
             {
-                CCSPlayerController player = @event.Userid;
+                CCSPlayerController player = @event.Userid!;
                 if (player is null || !player.IsValid || !player.PlayerPawn.IsValid || player.IsBot) return HookResult.Continue;
 
                 if (Players.Any(p => p._controller == player))
@@ -86,7 +86,7 @@ namespace GameCMS
             _plugin.RegisterEventHandler((EventPlayerDisconnect @event, GameEventInfo info) =>
             {
 
-                PlayerModel? playerModel = GetPlayer(@event.Userid);
+                PlayerModel? playerModel = GetPlayer(@event.Userid!);
                 if (playerModel is null || !playerModel.IsValid || !playerModel.IsPlayer)
                     return HookResult.Continue;
 
@@ -104,7 +104,7 @@ namespace GameCMS
 
             _plugin.RegisterEventHandler((EventPlayerTeam @event, GameEventInfo info) =>
             {
-                PlayerModel? playerModel = GetPlayer(@event.Userid);
+                PlayerModel? playerModel = GetPlayer(@event.Userid!);
                 if (playerModel is null || !playerModel.IsValid || !playerModel.IsPlayer)
                     return HookResult.Continue;
 

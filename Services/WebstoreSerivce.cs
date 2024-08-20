@@ -14,9 +14,10 @@ namespace GameCMS
         private readonly ILogger<HttpServerSerivce> _logger;
         private readonly Helper _helper;
         private readonly HttpClient client = new HttpClient();
-        private System.Threading.Timer _timer;
         private readonly TimeSpan _interval = TimeSpan.FromSeconds(60); // Interval of 60 seconds
         private string _serverApiKey = string.Empty;
+
+        private string API_URI_BASE = string.Empty;
 
         public WebstoreService(ILogger<HttpServerSerivce> logger, Helper helper)
         {
@@ -24,17 +25,19 @@ namespace GameCMS
             _helper = helper;
         }
 
-        public void ListenForCommands(string ServerApiKey)
+        public void ListenForCommands(string ServerApiKey, string API_URI_BASE)
         {
             _logger.LogInformation("Start listening for webstore commands");
             _serverApiKey = ServerApiKey;
+            this.API_URI_BASE = $"{API_URI_BASE}/commands";
 
             var startTimeSpan = TimeSpan.Zero;
             var periodTimeSpan = _interval;
-            _timer = new System.Threading.Timer((e) =>
-            {
-                TryToFetchStoreCommands();
-            }, null, startTimeSpan, periodTimeSpan);
+
+            Timer _timer = new Timer((e) =>
+           {
+               TryToFetchStoreCommands();
+           }, null, startTimeSpan, periodTimeSpan);
         }
 
         public void TryToFetchStoreCommands(bool manual = false)
@@ -44,7 +47,7 @@ namespace GameCMS
 
         private async Task FetchStoreCommands(bool manual)
         {
-            var url = "https://api.gamecms.org/v2/commands/queue/cs2";
+            var url = $"{API_URI_BASE}/queue/cs2";
             HttpRequestMessage request = _helper.GetServerRequestHeaders(_serverApiKey);
             request.RequestUri = new Uri(url);
             request.Method = HttpMethod.Get;
@@ -111,19 +114,20 @@ namespace GameCMS
             }
             executedCommandIds.Add(commandData.id);
         }
+
         private async Task MarkCommandsAsCompleted(List<int> commandIds)
         {
             if (commandIds == null || !commandIds.Any())
                 return;
 
-            var url = "https://api.gamecms.org/v2/commands/complete";
+            var url = $"{API_URI_BASE}/complete";
 
             HttpRequestMessage request = _helper.GetServerRequestHeaders(_serverApiKey);
             request.RequestUri = new Uri(url);
             request.Method = HttpMethod.Post;
 
             var jsonContent = JsonSerializer.Serialize(commandIds);
-    
+
             var formData = new Dictionary<string, string> { { "ids", jsonContent } };
 
             request.Content = new FormUrlEncodedContent(formData);
@@ -141,6 +145,7 @@ namespace GameCMS
                 Console.WriteLine("Exception in MarkCommandsAsCompleted: " + ex.Message);
             }
         }
+        
         private async Task<bool> CheckIfPlayerOnline(ulong steam_id)
         {
             TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();

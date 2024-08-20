@@ -36,13 +36,23 @@ namespace GameCMS
     public class ServerResponseEntity
     {
 
-        public int id { get; set; }
+        public int id { get; set; } = 0;
 
-        public ServerResponseEntity(int id)
+        public ServerResponseEntity(int id = 0)
         {
             this.id = id;
         }
 
+    }
+
+    public class ServerVerifyResponseEntity
+    {
+
+        public string message { get; set; } = "";
+        public ServerVerifyResponseEntity(string message)
+        {
+            this.message = message;
+        }
     }
 
 }

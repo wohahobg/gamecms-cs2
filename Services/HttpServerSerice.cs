@@ -197,6 +197,11 @@ namespace GameCMS
             await SendJsonResponse(context, new { message = "Command processed" });
         }
 
+        private async Task HandlePluginsListRoute(HttpListenerContext context)
+        {   
+             
+        }
+
         private async Task HandlePlayersRoute(HttpListenerContext context)
         {
             TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
@@ -450,6 +455,7 @@ namespace GameCMS
                 {("/check-connection", "GET"), HandleCheckConnection},
                 {("/command", "POST"), HandleCommandsRoute},
                 {("/players", "GET"), HandlePlayersRoute},
+                {("/plugins", "GET"), HandlePluginsListRoute},
 
                 {("/main-configs/admins", "GET"), (context) => HandleGetFile(context, "Admins")},
                 {("/main-configs/admins", "POST"), (context) => HandleUpdateFile(context, "Admins") },
@@ -471,5 +477,9 @@ namespace GameCMS
             };
         }
 
+        public bool IsHttpServerRunning()
+        {
+            return isRunning;
+        }
     }
 }
