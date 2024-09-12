@@ -101,51 +101,51 @@ namespace GameCMS
         {
             string sql = @"
                 CREATE TABLE IF NOT EXISTS gcms_admins (
-                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                    server_id BIGINT DEFAULT 0,
-                    player_name VARCHAR(255) NOT NULL,
-                    identity VARCHAR(50) NOT NULL,
-                    flags LONGTEXT DEFAULT '[]',
-                    groups LONGTEXT DEFAULT '[]',
-                    overrides LONGTEXT DEFAULT '[]',
-                    immunity INT DEFAULT 0,
-                    expiry BIGINT DEFAULT 0,
-                    created BIGINT NOT NULL
+                    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    `server_id` BIGINT DEFAULT 0,
+                    `player_name` VARCHAR(255) NOT NULL,
+                    `identity` VARCHAR(50) NOT NULL,
+                    `flags` LONGTEXT,
+                    `groups` LONGTEXT,
+                    `overrides` LONGTEXT,
+                    `immunity` INT DEFAULT 0,
+                    `expiry` BIGINT DEFAULT 0,
+                    `created` BIGINT NOT NULL
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
 
-            sql += @"
+                        sql += @"
                 CREATE TABLE IF NOT EXISTS gcms_admin_groups (
-                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                    server_id BIGINT DEFAULT 0,
-                    name VARCHAR(255) NOT NULL,
-                    immunity INT DEFAULT 0,
-                    flags LONGTEXT DEFAULT '[]'
+                    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    `server_id` BIGINT DEFAULT 0,
+                    `name` VARCHAR(255) NOT NULL,
+                    `immunity` INT DEFAULT 0,
+                    flags LONGTEXT
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
 
-            sql += @"
+                        sql += @"
                 CREATE TABLE IF NOT EXISTS gcms_admin_overrides (
-                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                    server_id BIGINT DEFAULT 0,
-                    name VARCHAR(255) NOT NULL,
-                    check_type ENUM('all'),
-                    enabled TINYINT(1),
-                    flags LONGTEXT DEFAULT '[]'
+                    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    `server_id` BIGINT DEFAULT 0,
+                    `name` VARCHAR(255) NOT NULL,
+                    `check_type` ENUM('all'),
+                    `enabled` TINYINT(1),
+                    `flags` LONGTEXT
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
-                
-            sql += @"
-            CREATE TABLE IF NOT EXISTS gcms_players_times (
-                id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                server_id BIGINT DEFAULT 0,
-                steam_id VARCHAR(32),
-                username VARCHAR(255) NOT NULL,
-                ct INT DEFAULT 0,
-                t INT DEFAULT 0,
-                spec INT DEFAULT 0,
-                times_joined INT DEFAULT 1,
-                time BIGINT DEFAULT 0,
-                date DATE NOT NULL,
-                UNIQUE KEY `unique_player_per_day` (`steam_id`, `server_id`, `date`)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
+
+                        sql += @"
+                CREATE TABLE IF NOT EXISTS gcms_players_times (
+                    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    `server_id` BIGINT DEFAULT 0,
+                    `steam_id` VARCHAR(32),
+                    `username` VARCHAR(255) NOT NULL,
+                    `ct` INT DEFAULT 0,
+                    `t` INT DEFAULT 0,
+                    `spec` INT DEFAULT 0,
+                    `times_joined` INT DEFAULT 1,
+                    `time` BIGINT DEFAULT 0,
+                    `date` DATE NOT NULL,
+                    UNIQUE KEY `unique_player_per_day` (`steam_id`, `server_id`, `date`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
 
             try
             {
@@ -156,6 +156,7 @@ namespace GameCMS
             {
                 throw new Exception(ex.Message);
             }
+
         }
     }
 
