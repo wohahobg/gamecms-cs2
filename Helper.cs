@@ -42,7 +42,7 @@ namespace GameCMS
 				/*
 				struct netadr_t
 				{
-				   uint32_t type
+				   uint32_t typeJust read the wiki, i have spent tons of times to do it.
 				   uint8_t ip[4]
 				   uint16_t port
 				}

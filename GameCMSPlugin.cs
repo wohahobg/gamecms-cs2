@@ -190,6 +190,8 @@
                     {
                         serverId = apiResponse.id;
                         Config.ServerApiKey = ServerKey;
+                        _httpServer.SetServerApiKey(ServerKey);
+                        _webStoreService.SetServerApiKey(ServerKey);
                         string jsonString = JsonSerializer.Serialize(Config, new JsonSerializerOptions { WriteIndented = true });
                         File.WriteAllText(filePath, jsonString);
                         command.ReplyToCommand($"[GameCMS.ORG] Server verified successfully!");
@@ -217,10 +219,6 @@
             }
 
 
-
-
-
-
         }
 
 
@@ -232,49 +230,6 @@
             _adminService.ProgressAdminsData(serverId, Config.DeleteExpiredAdmins);
         }
 
-        [ConsoleCommand("css_gcms_k4syncranks")]
-        [CommandHelper(minArgs: 0, whoCanExecute: CommandUsage.CLIENT_AND_SERVER)]
-        [RequiresPermissions("@css/root")]
-        public void OnCommandSyncK4SystemRank(CCSPlayerController? player, CommandInfo command)
-        {
-
-            if (serverId == 0)
-            {
-                command.ReplyToCommand("[GameCMS.ORG] Unable to locate the Server ID. Please ensure that your plugin is successfully connected to GameCMS.ORG by reloading the plugin. If the issue persists, verify your configuration settings or contact support for assistance.");
-                return;
-            }
-            _ = Task.Run(async () =>
-            {
-                async Task TaskSync()
-                {
-                    await using MySqlConnection connection = await Database.Instance.GetConnection();
-                    try
-                    {
-                        string query = "DELETE FROM gcms_k4systemranks WHERE server_id = @server_id";
-                        await connection.ExecuteAsync(query, new { server_id = serverId });
-
-                        var ranksFilePath = _helper.GetFilePath("plugins/K4-System/ranks.jsonc");
-                        var jsonContent = Regex.Replace(File.ReadAllText(ranksFilePath), @"/\*(.*?)\*/|//(.*)", string.Empty, RegexOptions.Multiline);
-                        var rankDictionary = JsonSerializer.Deserialize<Dictionary<string, K4SystemRankEntity>>(jsonContent);
-
-                        if (rankDictionary == null) return;
-
-                        foreach (var rank in rankDictionary.Values)
-                        {
-                            rank.server_id = serverId;
-                            await Database.Instance.Insert("gcms_k4systemranks", connection, rank);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.LogError($"K4System rank sync threw an error: {ex.Message}");
-
-                    }
-                }
-                await TaskSync();
-            });
-            command.ReplyToCommand("[GameCMS.ORG] Ranks have been synced successfully");
-        }
 
         [GameEventHandler]
         public HookResult OnPlayerConnect(EventPlayerConnectFull @event, GameEventInfo info)

@@ -25,6 +25,11 @@ namespace GameCMS
             _helper = helper;
         }
 
+
+        public void SetServerApiKey(string ServerApiKey){
+            _serverApiKey = ServerApiKey;
+        }
+
         public void ListenForCommands(string ServerApiKey, string API_URI_BASE)
         {
             _logger.LogInformation("Start listening for webstore commands");

@@ -6,6 +6,7 @@ namespace GameCMS
     using System.Net;
     using System.Text;
     using System.Text.Json;
+    using System.Text.RegularExpressions;
     using System.Web;
     using CounterStrikeSharp.API;
     using CounterStrikeSharp.API.Core;
@@ -59,18 +60,42 @@ namespace GameCMS
 
             try
             {
-                var jsonObject = JsonSerializer.Deserialize<Dictionary<string, object>>(jsonContent);
-                if (jsonObject == null)
+                // Remove comments from the JSON content
+                string json = Regex.Replace(jsonContent, @"/\*(.*?)\*/|//(.*)", string.Empty, RegexOptions.Multiline);
+
+                // Determine the type of JSON structure
+                if (json.TrimStart().StartsWith("{"))
                 {
-                    await SendJsonResponse(context, new { message = $"The file '{fileName}' contains invalid JSON content. Path: {filePath}" }, 400);
-                    return;
+                    // Deserialize as an object (Dictionary)
+                    var jsonObject = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
+                    if (jsonObject == null)
+                    {
+                        await SendJsonResponse(context, new { message = $"The file '{fileName}' contains invalid JSON content. Path: {filePath}" }, 400);
+                        return;
+                    }
+                    await SendJsonResponse(context, new { data = jsonObject }, 200);
                 }
-                await SendJsonResponse(context, new { data = jsonObject }, 200);
+                else if (json.TrimStart().StartsWith("["))
+                {
+                    // Deserialize as an array of objects (List of Dictionaries)
+                    var jsonArray = JsonSerializer.Deserialize<List<Dictionary<string, object>>>(json);
+                    if (jsonArray == null)
+                    {
+                        await SendJsonResponse(context, new { message = $"The file '{fileName}' contains invalid JSON content. Path: {filePath}" }, 400);
+                        return;
+                    }
+                    await SendJsonResponse(context, new { data = jsonArray }, 200);
+                }
+                else
+                {
+                    await SendJsonResponse(context, new { message = $"Unknown JSON structure in '{fileName}'." }, 400);
+                }
             }
-            catch (JsonException)
+            catch (JsonException ex)
             {
-                await SendJsonResponse(context, new { message = $"Failed to parse JSON format in '{fileName}'. Path: {filePath}" }, 400);
+                await SendJsonResponse(context, new { message = $"Failed to parse JSON format in '{fileName}'. Path: {filePath}, Error {ex.Message}" }, 400);
             }
+
 
         }
 
@@ -198,8 +223,15 @@ namespace GameCMS
         }
 
         private async Task HandlePluginsListRoute(HttpListenerContext context)
-        {   
-             
+        {
+
+        }
+
+        private async Task HandleGetTimezone(HttpListenerContext context)
+        {
+            TimeZoneInfo localTimeZone = TimeZoneInfo.Local;
+            String TimeZoneId = localTimeZone.Id;
+            await SendJsonResponse(context, new { timezone = TimeZoneId });
         }
 
         private async Task HandlePlayersRoute(HttpListenerContext context)
@@ -325,6 +357,7 @@ namespace GameCMS
                 "AdminGroups" => (_helper.GetFilePath("configs/admin_groups.json"), "css_groups_reload"),
                 "AdminOverrides" => (_helper.GetFilePath("configs/admin_overrides.json"), "css_overrides_reload"),
                 "Admins" => (_helper.GetFilePath("configs/admins.json"), "css_admins_reload"),
+                "K4-Zenith-Ranks" => (_helper.GetFilePath("plugins/K4-Zenith-Ranks/ranks.jsonc"), null),
                 _ => (null, null), // Handle the default case by returning nulls or some default value
             };
             return result;
@@ -369,6 +402,11 @@ namespace GameCMS
 
             string token = authHeader.Substring("Bearer ".Length).Trim();
             return token == _serverApiKey;
+        }
+
+        public void SetServerApiKey(string ServerApiKey)
+        {
+            _serverApiKey = ServerApiKey;
         }
 
         public void Start(int port, string serverApiKey)
@@ -471,9 +509,16 @@ namespace GameCMS
                 {("/main-configs/admins/overrides/list", "GET"), (context) => HandleGetFileKeys(context, "AdminOverrides")},
                 {("/main-configs/admins/overrides", "POST"), (context) => HandleUpdateFile(context, "AdminOverrides") },
 
+                {("/k4-zenith-ranks", "GET"), (context) => HandleGetFile(context, "K4-Zenith-Ranks") },
+
+                {("/timezone", "GET"), HandleGetTimezone},
+
                 {("/vipcore/groups", "GET"),  (context) => HandleGetFile(context, "VipCoreGroups") },
                 {("/vipcore/groups", "POST"), (context) => HandleUpdateFile(context, "VipCoreGroups") },
                 {("/vipcore/server", "GET"), (context) => new VIPCoreHelper(this).GetVipCoreServer(context)},
+
+
+                {("/vip-plugin/groups", "GET"),  (context) => new VIPPluginHelper(this).GetVIPGroups(context)},
             };
         }
 
