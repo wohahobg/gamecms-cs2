@@ -19,7 +19,7 @@
     public sealed partial class GameCMSPlugin : BasePlugin, IPluginConfig<GameCMSConfig>
     {
         public override string ModuleName => "GameCMS.ORG";
-        public override string ModuleVersion => "1.0.6";
+        public override string ModuleVersion => "1.0.7";
         public override string ModuleAuthor => "GameCMS.ORG (Wohaho)";
         public override string ModuleDescription => "Plugin that allows you to connect your CS2 Server with the platform. Made with love. Keep it simple - GameCMS.ORG";
         public GameCMSConfig Config { get; set; } = new();
@@ -32,11 +32,12 @@
         private HttpServerSerivce _httpServer;
 
         private PlayingTimeService _playingTimeService;
+        private ServerDataService _serverDataService;
 
         private string API_URI_BASE = "https://api.gamecms.org/v2";
 
 
-        public GameCMSPlugin(Helper helper, WebstoreService webstoreService, AdminService adminService, HttpServerSerivce httpServer, PlayingTimeService playingTimeService)
+        public GameCMSPlugin(Helper helper, WebstoreService webstoreService, AdminService adminService, HttpServerSerivce httpServer, PlayingTimeService playingTimeService, ServerDataService serverDataService)
         {
             _helper = helper;
             _helper.setDirecotry(Server.GameDirectory);
@@ -44,6 +45,7 @@
             _httpServer = httpServer;
             _webStoreService = webstoreService;
             _playingTimeService = playingTimeService;
+            _serverDataService = serverDataService;
         }
 
         public override void Load(bool hotReload)
@@ -53,12 +55,14 @@
             _httpServer.Start(ServerHttpPort, serverApiKey);
             _webStoreService.ListenForCommands(serverApiKey, API_URI_BASE);
             _playingTimeService.Start(hotReload, serverId);
+            _serverDataService.Start(hotReload, serverId);
 
             //load all player cache.
 
             //RegisterListener<OnMapStart>(OnMapStart);
             if (hotReload)
             {
+                Task.Run(() => _serverDataService.SendServerData());
                 _playingTimeService.LoadAllPlayersCache();
             }
 
@@ -160,7 +164,7 @@
             request.Method = HttpMethod.Post;
 
             var address = _helper.GetServerIp();
-            var port = ConVar.Find("hostport")?.GetPrimitiveValue<int>()!.ToString() ?? "27015"; 
+            var port = ConVar.Find("hostport")?.GetPrimitiveValue<int>()!.ToString() ?? "27015";
             var httpPort = Config.ServerHttpPort;
 
             string encryptionKey = ServerKey.Substring(0, 32);
@@ -234,10 +238,9 @@
         [GameEventHandler]
         public HookResult OnPlayerConnect(EventPlayerConnectFull @event, GameEventInfo info)
         {
-            CCSPlayerController? player = @event.Userid;
+            CCSPlayerController? player = @event.Userid!;
 
-            if (player == null || string.IsNullOrEmpty(player.IpAddress) || player.IpAddress.Contains("127.0.0.1")
-                || player.IsBot || player.IsHLTV || !player.UserId.HasValue)
+            if (_helper.isValidPlayer(player) == false || player.IsHLTV || player.IsBot)
                 return HookResult.Continue;
 
             _helper.AddPlayerToTimeCollection(player.SteamID);
@@ -286,6 +289,7 @@
             serviceCollection.AddSingleton<AdminService>();
             serviceCollection.AddSingleton<HttpServerSerivce>();
             serviceCollection.AddSingleton<PlayingTimeService>();
+            serviceCollection.AddSingleton<ServerDataService>();
         }
     }
 

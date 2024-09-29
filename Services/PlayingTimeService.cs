@@ -12,6 +12,8 @@ namespace GameCMS
     using GameCMS.Models;
     using CounterStrikeSharp.API;
     using System.Data;
+    using System.Text.Json;
+    using CounterStrikeSharp.API.Modules.Cvars;
 
     public class PlayingTimeService
     {
@@ -29,7 +31,6 @@ namespace GameCMS
             _helper = helper;
             _logger = logger;
             _pluginContext = pluginContext;
-
         }
 
         public void Start(bool hotReload, int serverId)
@@ -40,7 +41,9 @@ namespace GameCMS
             _plugin.RegisterEventHandler((EventPlayerConnectFull @event, GameEventInfo info) =>
             {
                 CCSPlayerController player = @event.Userid!;
-                if (player is null || !player.IsValid || !player.PlayerPawn.IsValid || player.IsBot) return HookResult.Continue;
+                if (_helper.isValidPlayer(player) == false || player.IsHLTV || player.IsBot)
+                    return HookResult.Continue;
+
 
                 if (Players.Any(p => p._controller == player))
                     return HookResult.Continue;
@@ -131,6 +134,7 @@ namespace GameCMS
             }, HookMode.Post);
 
         }
+
 
         private string GetFieldForTeam(CsTeam team)
         {
@@ -291,7 +295,7 @@ namespace GameCMS
         public async Task SaveAllPlayersDataAsync()
         {
             if (Players.Count == 0) return;
-            
+
             using var connection = await Database.Instance.GetConnection();
             var transaction = await connection.BeginTransactionAsync();
 
@@ -334,7 +338,10 @@ namespace GameCMS
 
         public void LoadAllPlayersCache()
         {
-            List<CCSPlayerController> players = Utilities.GetPlayers().Where(player => player?.IsValid == true && player.PlayerPawn?.IsValid == true).ToList();
+
+            List<CCSPlayerController> players = Utilities.GetPlayers()
+                    .Where(x => x.Connected == PlayerConnectedState.PlayerConnected)
+                    .Where(x => _helper.isValidPlayer(x) && !x.IsHLTV && !x.IsBot).ToList();
 
             if (players.Count == 0) return;
 

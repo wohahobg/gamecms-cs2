@@ -23,4 +23,20 @@ namespace GameCMS
         public bool is_terrorist { get; internal set; }
         public bool is_counter_terrorist { get; internal set; }
     }
+
+    public class PlayerInfoEntityServerData
+    {
+        public string? name { get; set; }
+        public ulong steam_id { get; set; }
+        public long joined_time { get; set; } = 0;
+
+        public int kills { get; set; }
+        public int deaths { get; set; }
+        public int score { get; set; }
+
+        public string team { get; set; } = "unknown";
+
+        public uint ping { get; set; }
+    }
+
 }

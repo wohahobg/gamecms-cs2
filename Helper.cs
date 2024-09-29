@@ -185,5 +185,12 @@ namespace GameCMS
 			return Path.GetFullPath(combinePath);
 		}
 
-	}
+        public bool isValidPlayer(CCSPlayerController player)
+        {
+             return player != null &&
+               player.IsValid &&
+               player.PlayerPawn.IsValid &&
+               player.AuthorizedSteamID != null;
+        }
+    }
 }

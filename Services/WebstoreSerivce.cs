@@ -15,6 +15,7 @@ namespace GameCMS
         private readonly Helper _helper;
         private readonly HttpClient client = new HttpClient();
         private readonly TimeSpan _interval = TimeSpan.FromSeconds(60); // Interval of 60 seconds
+        private Timer? _timer = null;
         private string _serverApiKey = string.Empty;
 
         private string API_URI_BASE = string.Empty;
@@ -26,7 +27,8 @@ namespace GameCMS
         }
 
 
-        public void SetServerApiKey(string ServerApiKey){
+        public void SetServerApiKey(string ServerApiKey)
+        {
             _serverApiKey = ServerApiKey;
         }
 
@@ -39,7 +41,7 @@ namespace GameCMS
             var startTimeSpan = TimeSpan.Zero;
             var periodTimeSpan = _interval;
 
-            Timer _timer = new Timer((e) =>
+            _timer = new Timer((e) =>
            {
                TryToFetchStoreCommands();
            }, null, startTimeSpan, periodTimeSpan);
@@ -150,7 +152,7 @@ namespace GameCMS
                 Console.WriteLine("Exception in MarkCommandsAsCompleted: " + ex.Message);
             }
         }
-        
+
         private async Task<bool> CheckIfPlayerOnline(ulong steam_id)
         {
             TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();

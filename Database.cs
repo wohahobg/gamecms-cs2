@@ -111,7 +111,7 @@ namespace GameCMS
                     `immunity` INT DEFAULT 0,
                     `expiry` BIGINT DEFAULT 0,
                     `created` BIGINT NOT NULL
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;";
 
                         sql += @"
                 CREATE TABLE IF NOT EXISTS gcms_admin_groups (
@@ -120,7 +120,7 @@ namespace GameCMS
                     `name` VARCHAR(255) NOT NULL,
                     `immunity` INT DEFAULT 0,
                     flags LONGTEXT
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;";
 
                         sql += @"
                 CREATE TABLE IF NOT EXISTS gcms_admin_overrides (
@@ -130,7 +130,7 @@ namespace GameCMS
                     `check_type` ENUM('all'),
                     `enabled` TINYINT(1),
                     `flags` LONGTEXT
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;";
 
                         sql += @"
                 CREATE TABLE IF NOT EXISTS gcms_players_times (
@@ -145,7 +145,7 @@ namespace GameCMS
                     `time` BIGINT DEFAULT 0,
                     `date` DATE NOT NULL,
                     UNIQUE KEY `unique_player_per_day` (`steam_id`, `server_id`, `date`)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;";
 
             try
             {
