@@ -41,12 +41,14 @@ namespace GameCMS
 
             _plugin.RegisterEventHandler((EventServerShutdown @event, GameEventInfo info) =>
             {
+                if (!_plugin.Config.services.ServerDataCollection) return HookResult.Continue;
                 Task.Run(() => SendServerData(false));
                 return HookResult.Continue;
             });
             
             _plugin.RegisterEventHandler((EventPlayerConnectFull @event, GameEventInfo info) =>
             {
+                 if (!_plugin.Config.services.ServerDataCollection) return HookResult.Continue;
                 CCSPlayerController player = @event.Userid!;
                 if (player == null || _helper.isValidPlayer(player) == false || player!.IsHLTV && player.IsBot)
                     return HookResult.Continue;
@@ -57,6 +59,7 @@ namespace GameCMS
 
             _plugin.RegisterEventHandler((EventPlayerDisconnect @event, GameEventInfo info) =>
             {
+                 if (!_plugin.Config.services.ServerDataCollection) return HookResult.Continue;
                 CCSPlayerController player = @event.Userid!;
                 if (_helper.isValidPlayer(player) == false || player.IsHLTV || player.IsBot)
                     return HookResult.Continue;
@@ -70,6 +73,7 @@ namespace GameCMS
 
             _plugin.RegisterEventHandler((EventPlayerTeam @event, GameEventInfo info) =>
             {
+                 if (!_plugin.Config.services.ServerDataCollection) return HookResult.Continue;
                 CCSPlayerController player = @event.Userid!;
                 if (player == null || _helper.isValidPlayer(player) == false || player!.IsHLTV && player.IsBot)
                     return HookResult.Continue;
@@ -81,7 +85,7 @@ namespace GameCMS
 
             _plugin.RegisterEventHandler((EventRoundEnd @event, GameEventInfo info) =>
             {
-
+                if (!_plugin.Config.services.ServerDataCollection) return HookResult.Continue;
                 int winner = @event.Winner;
                 if (winner == (byte)CsTeam.CounterTerrorist)
                 {
@@ -100,6 +104,7 @@ namespace GameCMS
 
             _plugin.RegisterEventHandler((EventBeginNewMatch @evennt, GameEventInfo info) =>
             {
+                if (!_plugin.Config.services.ServerDataCollection) return HookResult.Continue;
                 roundsWinsCt = 0;
                 roundsWinsT = 0;
                 long currentUnixTimestampSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -109,6 +114,7 @@ namespace GameCMS
 
             _plugin.RegisterEventHandler((EventWarmupEnd @evennt, GameEventInfo info) =>
             {
+                if (!_plugin.Config.services.ServerDataCollection) return HookResult.Continue;
                 roundsWinsCt = 0;
                 roundsWinsT = 0;
                 long currentUnixTimestampSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds();

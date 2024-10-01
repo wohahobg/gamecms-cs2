@@ -15,6 +15,7 @@
     using MySqlConnector;
     using Dapper;
     using CounterStrikeSharp.API.Modules.Cvars;
+    using System.Text.Json.Serialization;
 
     public sealed partial class GameCMSPlugin : BasePlugin, IPluginConfig<GameCMSConfig>
     {
@@ -54,16 +55,27 @@
             string serverApiKey = Config.ServerApiKey;
             _httpServer.Start(ServerHttpPort, serverApiKey);
             _webStoreService.ListenForCommands(serverApiKey, API_URI_BASE);
-            _playingTimeService.Start(hotReload, serverId);
-            _serverDataService.Start(hotReload, serverId);
 
-            //load all player cache.
+            if (Config.services.PlayingTime)
+            {
+                _playingTimeService.Start(hotReload, serverId);
+            }
 
-            //RegisterListener<OnMapStart>(OnMapStart);
+            if (Config.services.ServerDataCollection)
+            {
+                _serverDataService.Start(hotReload, serverId);
+            }
+
             if (hotReload)
             {
-                Task.Run(() => _serverDataService.SendServerData());
-                _playingTimeService.LoadAllPlayersCache();
+                if (Config.services.ServerDataCollection)
+                {
+                    Task.Run(() => _serverDataService.SendServerData());
+                }
+                if (Config.services.PlayingTime)
+                {
+                    _playingTimeService.LoadAllPlayersCache();
+                }
             }
 
         }
@@ -71,9 +83,10 @@
         public override void Unload(bool hotReload)
         {
             _httpServer.Stop();
-
-            Task.Run(() => _playingTimeService.SaveAllPlayersDataAsync());
-
+            if (Config.services.PlayingTime)
+            {
+                Task.Run(() => _playingTimeService.SaveAllPlayersDataAsync());
+            }
         }
 
 
@@ -125,6 +138,59 @@
             _webStoreService.TryToFetchStoreCommands(true);
         }
 
+        [ConsoleCommand("css_gcms_service")]
+        [CommandHelper(minArgs: 2, "enable/disabled service:playing-time,server-data-collection", whoCanExecute: CommandUsage.CLIENT_AND_SERVER)]
+        [RequiresPermissions("@css/root")]
+        public void onCommandService(CCSPlayerController? player, CommandInfo command)
+        {
+            string status = command.GetArg(1).ToLower();
+            var validStatuses = new[] { "enable", "disable", "start", "stop" };
+
+            if (!validStatuses.Contains(status))
+            {
+                command.ReplyToCommand("The status must be 'enable', 'disable', 'start', or 'stop'.");
+                return;
+            }
+
+            string service = command.GetArg(2).ToLower();
+            var servicesConfig = Config.services;
+
+            var property = typeof(ServicesConfig).GetProperties()
+                            .FirstOrDefault(p => p.GetCustomAttributes(typeof(JsonPropertyNameAttribute), false)
+                            .OfType<JsonPropertyNameAttribute>()
+                            .Any(attr => attr.Name.Equals(service, StringComparison.OrdinalIgnoreCase)));
+
+            if (property == null)
+            {
+                command.ReplyToCommand($"Invalid service name '{service}'. Please check the available services.");
+                return;
+            }
+
+            bool newStatus = status == "enabled" || status == "start";
+            bool currentStatus = (bool)property.GetValue(servicesConfig)!;
+            if (currentStatus == newStatus)
+            {
+                command.ReplyToCommand($"No changes needed. The service '{service}' is already {(newStatus ? "enabled" : "disabled")}.");
+                return;
+            }
+
+
+            property.SetValue(servicesConfig, newStatus);
+
+            var moduleFolderName = Path.GetFileName(ModuleDirectory);
+            var filePath = _helper.GetFilePath($"configs/plugins");
+            filePath = _helper.GetFilePath($"{filePath}/{moduleFolderName}");
+            filePath = _helper.GetFilePath($"{filePath}/{moduleFolderName}.json");
+
+            string jsonString = JsonSerializer.Serialize(Config, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(filePath, jsonString);
+
+            string response = $"Service '{service}' has been {(newStatus ? "enabled" : "disabled")}.";
+            Server.NextWorldUpdate(() => Load(false));
+            command.ReplyToCommand(response);
+        }
+
+
         [ConsoleCommand("css_gcms_server_verify")]
         [CommandHelper(minArgs: 1, usage: "<server-api-key>", whoCanExecute: CommandUsage.CLIENT_AND_SERVER)]
         [RequiresPermissions("@css/root")]
@@ -134,8 +200,6 @@
             var filePath = _helper.GetFilePath($"configs/plugins");
             filePath = _helper.GetFilePath($"{filePath}/{moduleFolderName}");
             filePath = _helper.GetFilePath($"{filePath}/{moduleFolderName}.json");
-
-
 
             if (!_httpServer.IsHttpServerRunning())
             {

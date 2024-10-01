@@ -358,6 +358,7 @@ namespace GameCMS
                 "AdminOverrides" => (_helper.GetFilePath("configs/admin_overrides.json"), "css_overrides_reload"),
                 "Admins" => (_helper.GetFilePath("configs/admins.json"), "css_admins_reload"),
                 "K4-Zenith-Ranks" => (_helper.GetFilePath("plugins/K4-Zenith-Ranks/ranks.jsonc"), null),
+                "K4-System" => (_helper.GetFilePath("plugins/K4-System/ranks.jsonc"), null),
                 _ => (null, null), // Handle the default case by returning nulls or some default value
             };
             return result;
@@ -510,6 +511,7 @@ namespace GameCMS
                 {("/main-configs/admins/overrides", "POST"), (context) => HandleUpdateFile(context, "AdminOverrides") },
 
                 {("/k4-zenith-ranks", "GET"), (context) => HandleGetFile(context, "K4-Zenith-Ranks") },
+                {("/k4-system", "GET"), (context) => HandleGetFile(context, "K4-System") },
 
                 {("/timezone", "GET"), HandleGetTimezone},
 

@@ -21,6 +21,9 @@ namespace GameCMS
         [JsonPropertyName("DeleteExpiredAdmins")]
         public bool DeleteExpiredAdmins { get; set; } = true;
 
+        [JsonPropertyName("services")]
+        public ServicesConfig services { get; set; } = new ServicesConfig();
+
         [JsonPropertyName("database")]
         public DatabaseConfig database { get; set; } = new DatabaseConfig();
     }
@@ -42,6 +45,14 @@ namespace GameCMS
 
         [JsonPropertyName("password")]
         public string password { get; set; } = "";
+    }
+
+    public sealed class ServicesConfig
+    {
+        [JsonPropertyName("playing-time")]
+        public bool PlayingTime { get; set; } = true;
+        [JsonPropertyName("server-data-collection")]
+        public bool ServerDataCollection { get; set; } = true;
     }
 
 }

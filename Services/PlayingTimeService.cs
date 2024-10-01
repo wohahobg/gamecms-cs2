@@ -40,6 +40,9 @@ namespace GameCMS
             _logger.LogInformation("Starting playing time service");
             _plugin.RegisterEventHandler((EventPlayerConnectFull @event, GameEventInfo info) =>
             {
+                //just in case , if they change it via command ?
+                if (!_plugin.Config.services.PlayingTime) return HookResult.Continue;
+
                 CCSPlayerController player = @event.Userid!;
                 if (_helper.isValidPlayer(player) == false || player.IsHLTV || player.IsBot)
                     return HookResult.Continue;
@@ -88,7 +91,7 @@ namespace GameCMS
 
             _plugin.RegisterEventHandler((EventPlayerDisconnect @event, GameEventInfo info) =>
             {
-
+                if (!_plugin.Config.services.PlayingTime) return HookResult.Continue;
                 PlayerModel? playerModel = GetPlayer(@event.Userid!);
                 if (playerModel is null || !playerModel.IsValid || !playerModel.IsPlayer)
                     return HookResult.Continue;
@@ -107,6 +110,7 @@ namespace GameCMS
 
             _plugin.RegisterEventHandler((EventPlayerTeam @event, GameEventInfo info) =>
             {
+                if (!_plugin.Config.services.PlayingTime) return HookResult.Continue;
                 PlayerModel? playerModel = GetPlayer(@event.Userid!);
                 if (playerModel is null || !playerModel.IsValid || !playerModel.IsPlayer)
                     return HookResult.Continue;
@@ -129,6 +133,7 @@ namespace GameCMS
 
             _plugin.RegisterEventHandler((EventRoundEnd @event, GameEventInfo info) =>
             {
+                if (!_plugin.Config.services.PlayingTime) return HookResult.Continue;
                 Task.Run(SaveAllPlayersDataAsync);
                 return HookResult.Continue;
             }, HookMode.Post);
