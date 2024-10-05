@@ -31,6 +31,7 @@ namespace GameCMS
         public long joined_time { get; set; } = 0;
 
         public int kills { get; set; }
+        public int headshots { get; set; }
         public int deaths { get; set; }
         public int score { get; set; }
 

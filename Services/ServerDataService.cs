@@ -38,7 +38,7 @@ namespace GameCMS
         public void Start(bool hotReload, int serverId)
         {
             _plugin = (_pluginContext.Plugin as GameCMSPlugin)!;
-
+            _logger.LogInformation("Starting server data collection service");
             _plugin.RegisterEventHandler((EventServerShutdown @event, GameEventInfo info) =>
             {
                 if (!_plugin.Config.services.ServerDataCollection) return HookResult.Continue;
@@ -179,13 +179,14 @@ namespace GameCMS
 
                     var formData = new Dictionary<string, string> { { "data", serverData } };
                     using var contentData = new FormUrlEncodedContent(formData);
+                    _logger.LogInformation($"Sending data: ${contentData}");
                     httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", postToken);
                     var postResponse = await httpClient.PostAsync(postUrl, contentData);
 
                     if (!postResponse.IsSuccessStatusCode)
                     {
                         string errorResponse = await postResponse.Content.ReadAsStringAsync();
-                        Console.WriteLine("Error sending data: " + errorResponse);
+                        _logger.LogWarning("Error sending data: " + errorResponse);
                     }
                 });
             }
@@ -205,7 +206,8 @@ namespace GameCMS
                 steam_id = player.SteamID,
                 joined_time = _helper.GetPlayerFromTimeCollection(player.SteamID),
 
-                kills = player.Kills.Count,
+                kills = player.ActionTrackingServices!.MatchStats.Kills,
+                headshots = player.ActionTrackingServices!.MatchStats.HeadShotKills,
                 deaths = player.ActionTrackingServices!.MatchStats.Deaths,
                 score = player.Score,
                 ping = player.Ping,

@@ -186,7 +186,7 @@
             File.WriteAllText(filePath, jsonString);
 
             string response = $"Service '{service}' has been {(newStatus ? "enabled" : "disabled")}.";
-            Server.NextWorldUpdate(() => Load(false));
+            Server.NextWorldUpdate(() => Load(true));
             command.ReplyToCommand(response);
         }
 

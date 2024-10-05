@@ -11,9 +11,6 @@ namespace GameCMS
     using MySqlConnector;
     using GameCMS.Models;
     using CounterStrikeSharp.API;
-    using System.Data;
-    using System.Text.Json;
-    using CounterStrikeSharp.API.Modules.Cvars;
 
     public class PlayingTimeService
     {
@@ -90,53 +87,84 @@ namespace GameCMS
             });
 
             _plugin.RegisterEventHandler((EventPlayerDisconnect @event, GameEventInfo info) =>
-            {
-                if (!_plugin.Config.services.PlayingTime) return HookResult.Continue;
-                PlayerModel? playerModel = GetPlayer(@event.Userid!);
-                if (playerModel is null || !playerModel.IsValid || !playerModel.IsPlayer)
-                    return HookResult.Continue;
-
-                DateTime now = _helper.GetTimeNow();
-                TimeData? playerData = playerModel.TimeData;
-                playerData!.TimeFields[GetFieldForTeam(playerModel._controller.Team)] += (int)(now - playerData.Times["Team"]).TotalSeconds;
-
-
-                if (@event.Reason != 1)
                 {
-                    Task.Run(() => SavePlayerDataAsync(playerModel));
-                }
-                return HookResult.Continue;
-            });
+                    if (!_plugin.Config.services.PlayingTime) return HookResult.Continue;
+
+                    PlayerModel? playerModel = GetPlayer(@event.Userid!);
+                    if (playerModel is null || !playerModel.IsValid || !playerModel.IsPlayer)
+                        return HookResult.Continue;
+
+                    DateTime now = _helper.GetTimeNow();
+                    TimeData? playerData = playerModel.TimeData;
+                    if (playerData != null)
+                    {
+
+                        playerData!.TimeFields[GetFieldForTeam(playerModel._controller.Team)] += (int)(now - playerData.Times["Team"]).TotalSeconds;
+                        if (@event.Reason != 1)
+                        {
+                            Task.Run(() => SavePlayerDataAsync(playerModel));
+                        }
+                    }
+                    return HookResult.Continue;
+                });
 
             _plugin.RegisterEventHandler((EventPlayerTeam @event, GameEventInfo info) =>
-            {
-                if (!_plugin.Config.services.PlayingTime) return HookResult.Continue;
-                PlayerModel? playerModel = GetPlayer(@event.Userid!);
-                if (playerModel is null || !playerModel.IsValid || !playerModel.IsPlayer)
-                    return HookResult.Continue;
+         {
+             if (!_plugin.Config.services.PlayingTime) return HookResult.Continue;
 
+             PlayerModel? playerModel = GetPlayer(@event.Userid!);
+             if (playerModel is null || !playerModel.IsValid || !playerModel.IsPlayer)
+             {
 
-                TimeData? playerData = playerModel.TimeData;
+                 CCSPlayerController player = @event.Userid!;
+                 if (_helper.isValidPlayer(player) == false || player.IsHLTV || player.IsBot)
+                     return HookResult.Continue;
 
-                if (playerData is null) return HookResult.Continue;
+                 PlayerModel playerModel1 = new PlayerModel(player);
+                 Task.Run(async () =>
+                 {
+                     _ = LoadPlayerDataAsync(playerModel1);
+                     _logger.LogInformation("Player modal was removed for some reason.");
+                 });
+                 return HookResult.Continue;
+             }
 
-                DateTime now = _helper.GetTimeNow();
-                if ((CsTeam)@event.Oldteam != CsTeam.None)
-                {
-                    playerData.TimeFields[GetFieldForTeam((CsTeam)@event.Oldteam)] += (int)(now - playerData.Times["Team"]).TotalSeconds;
-                }
+             TimeData? playerData = playerModel.TimeData;
+             if (playerData is null)
+             {
+                 return HookResult.Continue;
+             }
 
-                playerData.Times["Team"] = now;
+             DateTime now = _helper.GetTimeNow();
+             if ((CsTeam)@event.Oldteam != CsTeam.None)
+             {
+                 int timeSpent = (int)(now - playerData.Times["Team"]).TotalSeconds;
+                 string oldTeam = GetFieldForTeam((CsTeam)@event.Oldteam);
+                 playerData.TimeFields[oldTeam] += timeSpent;
+             }
 
-                return HookResult.Continue;
-            });
+             playerData.Times["Team"] = now;
+             return HookResult.Continue;
+         });
+
 
             _plugin.RegisterEventHandler((EventRoundEnd @event, GameEventInfo info) =>
             {
                 if (!_plugin.Config.services.PlayingTime) return HookResult.Continue;
+
                 Task.Run(SaveAllPlayersDataAsync);
                 return HookResult.Continue;
             }, HookMode.Post);
+
+
+            _plugin.RegisterEventHandler((EventPlayerSpawn @event, GameEventInfo info) =>
+            {
+
+
+                return HookResult.Continue;
+            });
+
+
 
         }
 
@@ -153,12 +181,12 @@ namespace GameCMS
 
         private PlayerModel? GetPlayer(ulong steamID)
         {
-            return Players.FirstOrDefault(player => player.SteamID == steamID);
+            return Players.ToList().FirstOrDefault(player => player.SteamID == steamID);
         }
 
         private PlayerModel? GetPlayer(CCSPlayerController playerController)
         {
-            return Players.FirstOrDefault(player => player._controller == playerController);
+            return Players.ToList().FirstOrDefault(player => player._controller == playerController);
         }
 
         private async Task LoadPlayerDataAsync(PlayerModel playerModel)
@@ -190,10 +218,7 @@ namespace GameCMS
                     TodayUnixTimestamp = currentUnixTimestamp
                 });
 
-                // Executes the combined insert-or-update operation and then fetches the updated player data.
                 var multiQueryResult = await connection.QueryMultipleAsync(insertOrUpdateQuery, dynamicParameters);
-
-                // Assuming you want the first or default result in case there are multiple records for the same player and day, which shouldn't happen with proper keys setup.
                 var playerData = multiQueryResult.ReadFirstOrDefault<dynamic>();
 
                 LoadPlayerRowToCache(playerModel, playerData);
@@ -217,8 +242,6 @@ namespace GameCMS
             if (playerData != null)
             {
                 var rowDictionary = (IDictionary<string, object>)playerData;
-
-                // _logger.LogWarning($"Loading row cache for {playerData.username} starting.");
 
                 Dictionary<string, int> TimeFields = new Dictionary<string, int>();
                 string[] timeFieldNames = { "ct", "t", "spec" };
@@ -246,6 +269,7 @@ namespace GameCMS
             {
                 await ExecuteTimeUpdateAsync(playerModel, transaction);
                 await transaction.CommitAsync();
+                Players.Remove(playerModel);
             }
             catch (Exception ex)
             {
@@ -253,7 +277,7 @@ namespace GameCMS
                 _logger.LogError($"An error occurred while saving all players data: {ex.Message}");
             }
 
-            Players.Remove(playerModel);
+
         }
 
         private async Task ExecuteTimeUpdateAsync(PlayerModel playerModel, MySqlTransaction transaction)
@@ -299,26 +323,31 @@ namespace GameCMS
 
         public async Task SaveAllPlayersDataAsync()
         {
-            if (Players.Count == 0) return;
-
-            using var connection = await Database.Instance.GetConnection();
-            var transaction = await connection.BeginTransactionAsync();
-
-            try
+            if (Players.Count == 0)
             {
-                var updates = Players.Select(playerModel => new
-                {
-                    SteamId = playerModel.SteamID,
-                    Username = playerModel.PlayerName,
-                    ServerId = _serverId,
-                    TodayDate = _helper.GetDate(),
-                    TodayUnixTimestamp = _helper.GetTime(),
-                    Ct = playerModel.TimeData?.TimeFields["ct"],
-                    T = playerModel.TimeData?.TimeFields["t"],
-                    Spec = playerModel.TimeData?.TimeFields["spec"]
-                }).ToList();
+                _logger.LogError($"Could not Save Players Stats, No players found.");
+                return;
+            }
+            else
+            {
+                using var connection = await Database.Instance.GetConnection();
+                var transaction = await connection.BeginTransactionAsync();
 
-                string query = @"INSERT INTO gcms_players_times 
+                try
+                {
+                    var updates = Players.Select(playerModel => new
+                    {
+                        SteamId = playerModel.SteamID,
+                        Username = playerModel.PlayerName,
+                        ServerId = _serverId,
+                        TodayDate = _helper.GetDate(),
+                        TodayUnixTimestamp = _helper.GetTime(),
+                        Ct = playerModel.TimeData?.TimeFields["ct"],
+                        T = playerModel.TimeData?.TimeFields["t"],
+                        Spec = playerModel.TimeData?.TimeFields["spec"]
+                    }).ToList();
+
+                    string query = @"INSERT INTO gcms_players_times 
                          (`steam_id`, `username`, `server_id`, `date`, `ct`, `t`, `spec`, `time`)
                          VALUES 
                          (@SteamId, @Username, @ServerId, @TodayDate, @Ct, @T, @Spec, @TodayUnixTimestamp)
@@ -329,13 +358,30 @@ namespace GameCMS
                              `spec` = VALUES(`spec`),
                              `time` = VALUES(`time`);";
 
-                var rowsAffected = await connection.ExecuteAsync(query, updates, transaction);
-                await transaction.CommitAsync();
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                _logger.LogError($"An error occurred while saving all players data: {ex.Message}");
+                    var rowsAffected = await connection.ExecuteAsync(query, updates, transaction);
+                    await transaction.CommitAsync();
+                    // var dataToLog = updates.Select(player => new
+                    // {
+                    //     player.SteamId,
+                    //     player.Username,
+                    //     player.ServerId,
+                    //     player.TodayDate,
+                    //     player.Ct,
+                    //     player.T,
+                    //     player.Spec,
+                    //     player.TodayUnixTimestamp
+                    // }).ToList();
+
+                    // var jsonData = System.Text.Json.JsonSerializer.Serialize(dataToLog);
+
+                    // _logger.LogInformation($"Executing query: {query}");
+                    // _logger.LogInformation($"Data being sent: {jsonData}");
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    _logger.LogError($"An error occurred while saving all players data: {ex.Message}");
+                }
             }
         }
 
@@ -350,6 +396,8 @@ namespace GameCMS
 
             if (players.Count == 0) return;
 
+
+
             foreach (var player in players)
             {
                 PlayerModel playerModel = new PlayerModel(player);
@@ -363,7 +411,6 @@ namespace GameCMS
                 WHERE `server_id` = @ServerId 
                 AND `date` = @TodayDate
                 AND `steam_id` IN (" + string.Join(",", players.Select(player => $"'{player.SteamID}'")) + ");";
-
             Task.Run(() => LoadAllPlayersCacheAsync(combinedQuery));
         }
 
@@ -385,7 +432,6 @@ namespace GameCMS
 
                 if (rows.Count() == 0) return;
 
-
                 foreach (var row in rows)
                 {
                     ulong.TryParse(row.steam_id, out ulong steamId);
@@ -393,7 +439,6 @@ namespace GameCMS
                     if (player == null) continue;
                     LoadPlayerRowToCache(player, row);
                 }
-
             }
             catch (Exception ex)
             {
