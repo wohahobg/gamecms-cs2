@@ -224,7 +224,7 @@ namespace GameCMS
 
         private async Task HandlePluginsListRoute(HttpListenerContext context)
         {
-
+            await SendJsonResponse(context, new { });
         }
 
         private async Task HandleGetTimezone(HttpListenerContext context)

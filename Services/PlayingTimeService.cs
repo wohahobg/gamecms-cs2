@@ -121,7 +121,7 @@ namespace GameCMS
                      return HookResult.Continue;
 
                  PlayerModel playerModel1 = new PlayerModel(player);
-                 Task.Run(async () =>
+                 _ = Task.Run(async () =>
                  {
                      _ = LoadPlayerDataAsync(playerModel1);
                      _logger.LogInformation("Player modal was removed for some reason.");
