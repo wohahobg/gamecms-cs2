@@ -179,7 +179,7 @@ namespace GameCMS
 
                     var formData = new Dictionary<string, string> { { "data", serverData } };
                     using var contentData = new FormUrlEncodedContent(formData);
-                    _logger.LogInformation($"Sending data: ${contentData}");
+                  
                     httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", postToken);
                     var postResponse = await httpClient.PostAsync(postUrl, contentData);
 
