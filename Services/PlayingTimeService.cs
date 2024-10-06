@@ -56,28 +56,35 @@ namespace GameCMS
                     string token = _plugin.Config.FaceitToken;
                     if (String.IsNullOrEmpty(token)) return;
 
-                    using (var httpClient = new HttpClient())
+                    try
                     {
-                        httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-                        var response = await httpClient.GetAsync(url);
-
-                        if (response.IsSuccessStatusCode)
+                        using (var httpClient = new HttpClient())
                         {
-                            var content = await response.Content.ReadAsStringAsync();
-                            string postUrl = "https://api.gamecms.org/v2/faceit";
-                            string postToken = _plugin.Config.ServerApiKey;
-                            var formData = new Dictionary<string, string>
+                            httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                            var response = await httpClient.GetAsync(url);
+
+                            if (response.IsSuccessStatusCode)
+                            {
+                                var content = await response.Content.ReadAsStringAsync();
+                                string postUrl = "https://api.gamecms.org/v2/faceit";
+                                string postToken = _plugin.Config.ServerApiKey;
+                                var formData = new Dictionary<string, string>
                                 {
                                     { "data", content }
                                 };
 
-                            using (var contentData = new FormUrlEncodedContent(formData))
-                            {
-                                httpClient.DefaultRequestHeaders.Authorization =
-                                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", postToken);
-                                var postResponse = await httpClient.PostAsync(postUrl, contentData);
+                                using (var contentData = new FormUrlEncodedContent(formData))
+                                {
+                                    httpClient.DefaultRequestHeaders.Authorization =
+                                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", postToken);
+                                    var postResponse = await httpClient.PostAsync(postUrl, contentData);
+                                }
                             }
                         }
+                    }
+                    catch (Exception)
+                    {
+
                     }
                 });
 

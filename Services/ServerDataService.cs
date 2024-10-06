@@ -45,10 +45,10 @@ namespace GameCMS
                 Task.Run(() => SendServerData(false));
                 return HookResult.Continue;
             });
-            
+
             _plugin.RegisterEventHandler((EventPlayerConnectFull @event, GameEventInfo info) =>
             {
-                 if (!_plugin.Config.services.ServerDataCollection) return HookResult.Continue;
+                if (!_plugin.Config.services.ServerDataCollection) return HookResult.Continue;
                 CCSPlayerController player = @event.Userid!;
                 if (player == null || _helper.isValidPlayer(player) == false || player!.IsHLTV && player.IsBot)
                     return HookResult.Continue;
@@ -59,7 +59,7 @@ namespace GameCMS
 
             _plugin.RegisterEventHandler((EventPlayerDisconnect @event, GameEventInfo info) =>
             {
-                 if (!_plugin.Config.services.ServerDataCollection) return HookResult.Continue;
+                if (!_plugin.Config.services.ServerDataCollection) return HookResult.Continue;
                 CCSPlayerController player = @event.Userid!;
                 if (_helper.isValidPlayer(player) == false || player.IsHLTV || player.IsBot)
                     return HookResult.Continue;
@@ -73,7 +73,7 @@ namespace GameCMS
 
             _plugin.RegisterEventHandler((EventPlayerTeam @event, GameEventInfo info) =>
             {
-                 if (!_plugin.Config.services.ServerDataCollection) return HookResult.Continue;
+                if (!_plugin.Config.services.ServerDataCollection) return HookResult.Continue;
                 CCSPlayerController player = @event.Userid!;
                 if (player == null || _helper.isValidPlayer(player) == false || player!.IsHLTV && player.IsBot)
                     return HookResult.Continue;
@@ -122,7 +122,7 @@ namespace GameCMS
                 isWarmupRound = false;
                 return HookResult.Continue;
             }, HookMode.Post);
-            
+
 
         }
 
@@ -179,7 +179,7 @@ namespace GameCMS
 
                     var formData = new Dictionary<string, string> { { "data", serverData } };
                     using var contentData = new FormUrlEncodedContent(formData);
-                  
+
                     httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", postToken);
                     var postResponse = await httpClient.PostAsync(postUrl, contentData);
 
@@ -189,6 +189,14 @@ namespace GameCMS
                         _logger.LogWarning("Error sending data: " + errorResponse);
                     }
                 });
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError("HttpRequestException occurred: {0}", ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Unexpected error occurred: {0}", ex.Message);
             }
             finally
             {
