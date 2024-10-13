@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
@@ -5,7 +6,6 @@ using CounterStrikeSharp.API.Core.Plugin;
 using CounterStrikeSharp.API.Modules.Cvars;
 using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
-
 namespace GameCMS
 {
 
@@ -126,7 +126,6 @@ namespace GameCMS
 
         }
 
-
         public async Task SendServerData(bool includePlayers = true)
         {
             if (isRequestInProgress || DateTime.UtcNow - lastRequestTime < requestCooldown)
@@ -137,25 +136,28 @@ namespace GameCMS
             isRequestInProgress = true;
             lastRequestTime = DateTime.UtcNow;
 
-            try
-            {
-                _plugin = (_pluginContext.Plugin as GameCMSPlugin)!;
-                await Server.NextWorldUpdateAsync(async () =>
-                {
 
+            _plugin = (_pluginContext.Plugin as GameCMSPlugin)!;
+            await Server.NextWorldUpdateAsync(async () =>
+            {
+
+                try
+                {
                     var players = Utilities.GetPlayers()
-                              .Where(x => x.Connected == PlayerConnectedState.PlayerConnected
-                                  && _helper.isValidPlayer(x)
-                                  && !x.IsHLTV
-                                  && !x.IsBot
-                                  && x.TeamNum != (byte)CsTeam.Spectator
-                                  && x.TeamNum != (byte)CsTeam.None
-                                  );
+                        .Where(x => x.Connected == PlayerConnectedState.PlayerConnected
+                            && _helper.isValidPlayer(x)
+                            && !x.IsHLTV
+                            && !x.IsBot
+                            && x.TeamNum != (byte)CsTeam.Spectator
+                            && x.TeamNum != (byte)CsTeam.None
+                        );
+
                     var playerInfos = new List<PlayerInfoEntityServerData>();
                     if (players.Any() && includePlayers)
                     {
                         playerInfos = GetPlayerInfos(players).ToList();
                     }
+
 
                     float MaxRoundTime = ConVar.Find("mp_roundtime")?.GetPrimitiveValue<float>() ?? 10f;
                     int MaxRounds = ConVar.Find("mp_maxrounds")?.GetPrimitiveValue<int>() ?? 0;
@@ -175,34 +177,50 @@ namespace GameCMS
 
                     string serverData = JsonSerializer.Serialize(serverDataEntity);
                     string postUrl = "https://api.gamecms.org/v2/server-data/cs2";
-                    string postToken = _plugin!.Config.ServerApiKey;
+                    string postToken = _plugin.Config.ServerApiKey;
 
-                    var formData = new Dictionary<string, string> { { "data", serverData } };
-                    using var contentData = new FormUrlEncodedContent(formData);
+                    _logger.LogDebug("Sending server data to {0} with token {1}", postUrl, postToken);
 
+                    // Use JSON content type
+                    var contentData = new StringContent(serverData, System.Text.Encoding.UTF8, "application/json");
+
+                    // Set up the HttpClient
                     httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", postToken);
+
                     var postResponse = await httpClient.PostAsync(postUrl, contentData);
 
-                    if (!postResponse.IsSuccessStatusCode)
+                    if (postResponse.StatusCode != HttpStatusCode.OK)
                     {
                         string errorResponse = await postResponse.Content.ReadAsStringAsync();
-                        _logger.LogWarning("Error sending data: " + errorResponse);
+                        _logger.LogWarning("Error sending data: StatusCode {0}, Response: {1}", postResponse.StatusCode, errorResponse);
                     }
-                });
-            }
-            catch (HttpRequestException ex)
-            {
-                _logger.LogError("HttpRequestException occurred: {0}", ex.Message);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError("Unexpected error occurred: {0}", ex.Message);
-            }
-            finally
-            {
-                isRequestInProgress = false;
-            }
+                    else
+                    {
+                        isRequestInProgress = false;
+                        _logger.LogInformation("Data sent successfully.");
+                    }
+
+                }
+                catch (HttpRequestException ex)
+                {
+                    _logger.LogError("HttpRequestException occurred: {0}", ex.Message);
+                }
+                catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
+                {
+                    _logger.LogError("Request timed out: {0}", ex.Message);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError("Unexpected error occurred: {0}", ex.Message);
+                }
+            });
+
+
+
+
         }
+
+
 
 
 

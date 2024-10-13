@@ -20,7 +20,7 @@
     public sealed partial class GameCMSPlugin : BasePlugin, IPluginConfig<GameCMSConfig>
     {
         public override string ModuleName => "GameCMS.ORG";
-        public override string ModuleVersion => "1.1.0";
+        public override string ModuleVersion => "1.1.1";
         public override string ModuleAuthor => "GameCMS.ORG (Wohaho)";
         public override string ModuleDescription => "Plugin that allows you to connect your CS2 Server with the platform. Made with love. Keep it simple - GameCMS.ORG";
         public GameCMSConfig Config { get; set; } = new();
@@ -166,7 +166,7 @@
                 return;
             }
 
-            bool newStatus = status == "enabled" || status == "start";
+            bool newStatus = status == "enabled" || status == "start" || status == "enable"; 
             bool currentStatus = (bool)property.GetValue(servicesConfig)!;
             if (currentStatus == newStatus)
             {
