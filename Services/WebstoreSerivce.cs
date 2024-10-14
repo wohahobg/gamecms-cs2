@@ -88,7 +88,6 @@ namespace GameCMS
             catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
             {
                 _logger.LogWarning("The request timed out. Please check your network connection or try again later.");
-                // Specifically catching the TaskCanceledException that results from a timeout
             }
             catch (Exception ex)
             {

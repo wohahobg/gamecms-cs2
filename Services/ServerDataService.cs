@@ -158,7 +158,6 @@ namespace GameCMS
                         playerInfos = GetPlayerInfos(players).ToList();
                     }
 
-
                     float MaxRoundTime = ConVar.Find("mp_roundtime")?.GetPrimitiveValue<float>() ?? 10f;
                     int MaxRounds = ConVar.Find("mp_maxrounds")?.GetPrimitiveValue<int>() ?? 0;
                     var serverDataEntity = new ServerDataEntity(
@@ -179,17 +178,18 @@ namespace GameCMS
                     string postUrl = "https://api.gamecms.org/v2/server-data/cs2";
                     string postToken = _plugin.Config.ServerApiKey;
 
-                    _logger.LogDebug("Sending server data to {0} with token {1}", postUrl, postToken);
 
-                    // Use JSON content type
-                    var contentData = new StringContent(serverData, System.Text.Encoding.UTF8, "application/json");
+                    var formData = new List<KeyValuePair<string, string>>
+                    {
+                        new KeyValuePair<string, string>("data", serverData)
+                    };
+                    var contentData = new FormUrlEncodedContent(formData);
 
-                    // Set up the HttpClient
                     httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", postToken);
 
                     var postResponse = await httpClient.PostAsync(postUrl, contentData);
 
-                    if (postResponse.StatusCode != HttpStatusCode.OK)
+                    if (postResponse.StatusCode != HttpStatusCode.OK && postResponse.StatusCode != HttpStatusCode.Created)
                     {
                         string errorResponse = await postResponse.Content.ReadAsStringAsync();
                         _logger.LogWarning("Error sending data: StatusCode {0}, Response: {1}", postResponse.StatusCode, errorResponse);
@@ -197,9 +197,7 @@ namespace GameCMS
                     else
                     {
                         isRequestInProgress = false;
-                        _logger.LogInformation("Data sent successfully.");
                     }
-
                 }
                 catch (HttpRequestException ex)
                 {
@@ -219,10 +217,6 @@ namespace GameCMS
 
 
         }
-
-
-
-
 
         private IEnumerable<PlayerInfoEntityServerData> GetPlayerInfos(IEnumerable<CCSPlayerController> players)
         {
