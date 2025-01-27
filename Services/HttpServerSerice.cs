@@ -287,7 +287,7 @@ namespace GameCMS
                 ip_address = player.IpAddress,
                 joined_time = _helper.GetPlayerFromTimeCollection(player.SteamID),
                 is_bot = player.IsBot,
-                kills = player.Kills.Count,
+                kills = player.KillCount,
                 deaths = player.ActionTrackingServices!.MatchStats.Deaths,
                 score = player.Score,
 
@@ -422,6 +422,7 @@ namespace GameCMS
                 }
 
                 SetRoutings();
+                string ServerIP = _helper.GetServerIp();
                 string localIP = ConVar.Find("ip")!.StringValue;
                 try
                 {
@@ -435,7 +436,7 @@ namespace GameCMS
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError($"Failed to start server: {ex.Message}");
+                    _logger.LogError($"Failed to start http server: {ex.Message}");
                 }
             }
         }

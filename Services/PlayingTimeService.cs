@@ -52,44 +52,7 @@ namespace GameCMS
                 Task.Run(async () =>
                 {
                     _ = LoadPlayerDataAsync(playerModel);
-                    string url = $"https://open.faceit.com/data/v4/players?game=cs2&game_player_id={player.SteamID}";
-                    string token = _plugin.Config.FaceitToken;
-                    if (String.IsNullOrEmpty(token)) return;
-
-                    try
-                    {
-                        using (var httpClient = new HttpClient())
-                        {
-                            httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-                            var response = await httpClient.GetAsync(url);
-
-                            if (response.IsSuccessStatusCode)
-                            {
-                                var content = await response.Content.ReadAsStringAsync();
-                                string postUrl = "https://api.gamecms.org/v2/faceit";
-                                string postToken = _plugin.Config.ServerApiKey;
-                                var formData = new Dictionary<string, string>
-                                {
-                                    { "data", content }
-                                };
-
-                                using (var contentData = new FormUrlEncodedContent(formData))
-                                {
-                                    httpClient.DefaultRequestHeaders.Authorization =
-                                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", postToken);
-                                    var postResponse = await httpClient.PostAsync(postUrl, contentData);
-                                }
-                            }
-                        }
-                    }
-                    catch (Exception)
-                    {
-
-                    }
                 });
-
-
-
                 return HookResult.Continue;
             });
 
@@ -116,7 +79,7 @@ namespace GameCMS
                 });
 
             _plugin.RegisterEventHandler((EventPlayerTeam @event, GameEventInfo info) =>
-         {
+             {
              if (!_plugin.Config.services.PlayingTime) return HookResult.Continue;
 
              PlayerModel? playerModel = GetPlayer(@event.Userid!);
@@ -131,7 +94,6 @@ namespace GameCMS
                  _ = Task.Run(async () =>
                  {
                      _ = LoadPlayerDataAsync(playerModel1);
-                     _logger.LogInformation("Player modal was removed for some reason.");
                  });
                  return HookResult.Continue;
              }

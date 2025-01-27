@@ -196,19 +196,22 @@ namespace GameCMS
                     }
                     else
                     {
-                        isRequestInProgress = false;
+                    isRequestInProgress = false;
                     }
                 }
                 catch (HttpRequestException ex)
                 {
+                    isRequestInProgress = false;
                     _logger.LogError("HttpRequestException occurred: {0}", ex.Message);
                 }
                 catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
                 {
+                      isRequestInProgress = false;
                     _logger.LogError("Request timed out: {0}", ex.Message);
                 }
                 catch (Exception ex)
                 {
+                    isRequestInProgress = false;
                     _logger.LogError("Unexpected error occurred: {0}", ex.Message);
                 }
             });

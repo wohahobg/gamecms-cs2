@@ -9,18 +9,14 @@
     using CounterStrikeSharp.API.Core.Attributes.Registration;
     using Microsoft.Extensions.Logging;
     using Microsoft.Extensions.DependencyInjection;
-    using static CounterStrikeSharp.API.Core.Listeners;
     using CounterStrikeSharp.API.Modules.Admin;
-    using System.Text.RegularExpressions;
-    using MySqlConnector;
-    using Dapper;
     using CounterStrikeSharp.API.Modules.Cvars;
     using System.Text.Json.Serialization;
 
     public sealed partial class GameCMSPlugin : BasePlugin, IPluginConfig<GameCMSConfig>
     {
         public override string ModuleName => "GameCMS.ORG";
-        public override string ModuleVersion => "1.1.1";
+        public override string ModuleVersion => "1.1.1a";
         public override string ModuleAuthor => "GameCMS.ORG (Wohaho)";
         public override string ModuleDescription => "Plugin that allows you to connect your CS2 Server with the platform. Made with love. Keep it simple - GameCMS.ORG";
         public GameCMSConfig Config { get; set; } = new();
@@ -78,6 +74,51 @@
                 }
             }
 
+            RegisterEventHandler((EventPlayerConnectFull @event, GameEventInfo info) =>
+            {
+
+                string token = Config.FaceitToken;
+                if (String.IsNullOrEmpty(token)) return HookResult.Continue;
+
+                CCSPlayerController player = @event.Userid!;
+                if (_helper.isValidPlayer(player) == false || player.IsHLTV || player.IsBot) return HookResult.Continue;
+                Task.Run(async () =>
+                {
+                    string url = $"https://open.faceit.com/data/v4/players?game=cs2&game_player_id={player.SteamID}";
+                    try
+                    {
+                        using (var httpClient = new HttpClient())
+                        {
+                            httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                            var response = await httpClient.GetAsync(url);
+
+                            if (response.IsSuccessStatusCode)
+                            {
+                                var content = await response.Content.ReadAsStringAsync();
+                                string postUrl = "https://api.gamecms.org/v2/faceit";
+                                string postToken = Config.ServerApiKey;
+                                var formData = new Dictionary<string, string>
+                                {
+                                    { "data", content }
+                                };
+
+                                using (var contentData = new FormUrlEncodedContent(formData))
+                                {
+                                    httpClient.DefaultRequestHeaders.Authorization =
+                                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", postToken);
+                                    var postResponse = await httpClient.PostAsync(postUrl, contentData);
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception)
+                    {
+
+                    }
+                });
+                return HookResult.Continue;
+            });
+
         }
 
         public override void Unload(bool hotReload)
@@ -129,7 +170,6 @@
             return 0;
         }
 
-
         [ConsoleCommand("css_gcms_store_force")]
         [CommandHelper(minArgs: 0, whoCanExecute: CommandUsage.CLIENT_AND_SERVER)]
         [RequiresPermissions("@css/root")]
@@ -166,7 +206,7 @@
                 return;
             }
 
-            bool newStatus = status == "enabled" || status == "start" || status == "enable"; 
+            bool newStatus = status == "enabled" || status == "start" || status == "enable";
             bool currentStatus = (bool)property.GetValue(servicesConfig)!;
             if (currentStatus == newStatus)
             {
