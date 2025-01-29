@@ -359,6 +359,7 @@ namespace GameCMS
                 "Admins" => (_helper.GetFilePath("configs/admins.json"), "css_admins_reload"),
                 "K4-Zenith-Ranks" => (_helper.GetFilePath("plugins/K4-Zenith-Ranks/ranks.jsonc"), null),
                 "K4-System" => (_helper.GetFilePath("plugins/K4-System/ranks.jsonc"), null),
+                "LevelsRanks" => (_helper.GetFilePath("configs/plugins/LevelsRanks/settings_ranks.json"), null),
                 _ => (null, null), // Handle the default case by returning nulls or some default value
             };
             return result;
@@ -513,6 +514,7 @@ namespace GameCMS
 
                 {("/k4-zenith-ranks", "GET"), (context) => HandleGetFile(context, "K4-Zenith-Ranks") },
                 {("/k4-system", "GET"), (context) => HandleGetFile(context, "K4-System") },
+                {("/levels-ranks", "GET"), (context) => HandleGetFile(context, "LevelsRanks") },
 
                 {("/timezone", "GET"), HandleGetTimezone},
 
