@@ -136,90 +136,92 @@ namespace GameCMS
             isRequestInProgress = true;
             lastRequestTime = DateTime.UtcNow;
 
-
             _plugin = (_pluginContext.Plugin as GameCMSPlugin)!;
-            await Server.NextWorldUpdateAsync(async () =>
-            {
 
-                try
+
+            try
+            {
+                await Server.NextWorldUpdateAsync(async () =>
                 {
-                    var players = Utilities.GetPlayers()
-                        .Where(x => x.Connected == PlayerConnectedState.PlayerConnected
-                            && _helper.isValidPlayer(x)
-                            && !x.IsHLTV
-                            && !x.IsBot
-                            && x.TeamNum != (byte)CsTeam.Spectator
-                            && x.TeamNum != (byte)CsTeam.None
+                    try
+                    {
+                        var players = Utilities.GetPlayers()
+                            .Where(x => x.Connected == PlayerConnectedState.PlayerConnected
+                                && _helper.isValidPlayer(x)
+                                && !x.IsHLTV
+                                && !x.IsBot
+                                && x.TeamNum != (byte)CsTeam.Spectator
+                                && x.TeamNum != (byte)CsTeam.None
+                            );
+
+                        var playerInfos = new List<PlayerInfoEntityServerData>();
+                        if (players.Any() && includePlayers)
+                        {
+                            playerInfos = GetPlayerInfos(players).ToList();
+                        }
+
+                        float MaxRoundTime = ConVar.Find("mp_roundtime")?.GetPrimitiveValue<float>() ?? 10f;
+                        int MaxRounds = ConVar.Find("mp_maxrounds")?.GetPrimitiveValue<int>() ?? 0;
+                        var serverDataEntity = new ServerDataEntity(
+                            playerInfos,
+                            Server.MapName,
+                            _helper.GetServerIp() + ":" + ConVar.Find("hostport")?.GetPrimitiveValue<int>()!.ToString() ?? "27015",
+                            Server.MaxPlayers,
+                            playerInfos.Count,
+                            roundsWinsCt,
+                            roundsWinsT,
+                            MaxRoundTime,
+                            MaxRounds,
+                            matchStartTime,
+                            isWarmupRound
                         );
 
-                    var playerInfos = new List<PlayerInfoEntityServerData>();
-                    if (players.Any() && includePlayers)
-                    {
-                        playerInfos = GetPlayerInfos(players).ToList();
+                        string serverData = JsonSerializer.Serialize(serverDataEntity);
+                        string postUrl = "https://api.gamecms.org/v2/server-data/cs2";
+                        string postToken = _plugin.Config.ServerApiKey;
+
+                        var formData = new List<KeyValuePair<string, string>>
+                        {
+                    new KeyValuePair<string, string>("data", serverData)
+                        };
+                        var contentData = new FormUrlEncodedContent(formData);
+
+                        httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", postToken);
+
+                        var postResponse = await httpClient.PostAsync(postUrl, contentData);
+
+                        if (postResponse.StatusCode != HttpStatusCode.OK && postResponse.StatusCode != HttpStatusCode.Created)
+                        {
+                            string errorResponse = await postResponse.Content.ReadAsStringAsync();
+                            _logger.LogWarning("Error sending data: StatusCode {0}, Response: {1}", postResponse.StatusCode, errorResponse);
+                        }
                     }
-
-                    float MaxRoundTime = ConVar.Find("mp_roundtime")?.GetPrimitiveValue<float>() ?? 10f;
-                    int MaxRounds = ConVar.Find("mp_maxrounds")?.GetPrimitiveValue<int>() ?? 0;
-                    var serverDataEntity = new ServerDataEntity(
-                        playerInfos,
-                        Server.MapName,
-                        _helper.GetServerIp() + ":" + ConVar.Find("hostport")?.GetPrimitiveValue<int>()!.ToString() ?? "27015",
-                        Server.MaxPlayers,
-                        playerInfos.Count,
-                        roundsWinsCt,
-                        roundsWinsT,
-                        MaxRoundTime,
-                        MaxRounds,
-                        matchStartTime,
-                        isWarmupRound
-                    );
-
-                    string serverData = JsonSerializer.Serialize(serverDataEntity);
-                    string postUrl = "https://api.gamecms.org/v2/server-data/cs2";
-                    string postToken = _plugin.Config.ServerApiKey;
-
-
-                    var formData = new List<KeyValuePair<string, string>>
+                    catch (HttpRequestException ex)
                     {
-                        new KeyValuePair<string, string>("data", serverData)
-                    };
-                    var contentData = new FormUrlEncodedContent(formData);
-
-                    httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", postToken);
-
-                    var postResponse = await httpClient.PostAsync(postUrl, contentData);
-
-                    if (postResponse.StatusCode != HttpStatusCode.OK && postResponse.StatusCode != HttpStatusCode.Created)
-                    {
-                        string errorResponse = await postResponse.Content.ReadAsStringAsync();
-                        _logger.LogWarning("Error sending data: StatusCode {0}, Response: {1}", postResponse.StatusCode, errorResponse);
+                        _logger.LogError("HttpRequestException occurred: {0}", ex.Message);
                     }
-                    else
+                    catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
                     {
-                    isRequestInProgress = false;
+                        _logger.LogError("Request timed out: {0}", ex.Message);
                     }
-                }
-                catch (HttpRequestException ex)
-                {
-                    isRequestInProgress = false;
-                    _logger.LogError("HttpRequestException occurred: {0}", ex.Message);
-                }
-                catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
-                {
-                      isRequestInProgress = false;
-                    _logger.LogError("Request timed out: {0}", ex.Message);
-                }
-                catch (Exception ex)
-                {
-                    isRequestInProgress = false;
-                    _logger.LogError("Unexpected error occurred: {0}", ex.Message);
-                }
-            });
-
-
-
-
+                    catch (Exception ex)
+                    {
+                        _logger.LogError("Unexpected error occurred: {0}", ex.Message);
+                    }
+                    finally
+                    {
+                        // Always reset isRequestInProgress at the end of execution
+                        isRequestInProgress = false;
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Unexpected error in NextWorldUpdateAsync: {0}", ex.Message);
+                isRequestInProgress = false; // Reset here as well
+            }
         }
+
 
         private IEnumerable<PlayerInfoEntityServerData> GetPlayerInfos(IEnumerable<CCSPlayerController> players)
         {

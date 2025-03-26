@@ -294,7 +294,7 @@ namespace GameCMS
         {
             if (Players.Count == 0)
             {
-                _logger.LogError($"Could not Save Players Stats, No players found.");
+               // _logger.LogError($"Could not Save Players Stats, No players found.");
                 return;
             }
             else

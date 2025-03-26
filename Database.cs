@@ -39,7 +39,7 @@ namespace GameCMS
                             Port = config.database.port,
                             Pooling = true,
                             MinimumPoolSize = 0,
-                            MaximumPoolSize = 640,
+                            MaximumPoolSize = 64,
                             ConnectionReset = false,
                             CharacterSet = "utf8mb4"
                         };
@@ -110,29 +110,33 @@ namespace GameCMS
                     `overrides` LONGTEXT,
                     `immunity` INT DEFAULT 0,
                     `expiry` BIGINT DEFAULT 0,
-                    `created` BIGINT NOT NULL
+                    `created` BIGINT NOT NULL,
+                    INDEX idx_identity (`identity`),
+                    INDEX idx_server_id (`server_id`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;";
 
-                        sql += @"
+            sql += @"
                 CREATE TABLE IF NOT EXISTS gcms_admin_groups (
                     `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
                     `server_id` BIGINT DEFAULT 0,
                     `name` VARCHAR(255) NOT NULL,
                     `immunity` INT DEFAULT 0,
-                    flags LONGTEXT
+                    `flags` LONGTEXT,
+                    INDEX idx_server_id (`server_id`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;";
 
-                        sql += @"
+            sql += @"
                 CREATE TABLE IF NOT EXISTS gcms_admin_overrides (
                     `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
                     `server_id` BIGINT DEFAULT 0,
                     `name` VARCHAR(255) NOT NULL,
                     `check_type` ENUM('all'),
                     `enabled` TINYINT(1),
-                    `flags` LONGTEXT
+                    `flags` LONGTEXT,
+                    INDEX idx_server_id (`server_id`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;";
 
-                        sql += @"
+            sql += @"
                 CREATE TABLE IF NOT EXISTS gcms_players_times (
                     `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
                     `server_id` BIGINT DEFAULT 0,
@@ -144,8 +148,12 @@ namespace GameCMS
                     `times_joined` INT DEFAULT 1,
                     `time` BIGINT DEFAULT 0,
                     `date` DATE NOT NULL,
-                    UNIQUE KEY `unique_player_per_day` (`steam_id`, `server_id`, `date`)
+                    UNIQUE KEY `unique_player_per_day` (`steam_id`, `server_id`, `date`),
+                    INDEX idx_steam_id (`steam_id`),
+                    INDEX idx_server_id (`server_id`), 
+                    INDEX idx_time (`time`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;";
+
 
             try
             {

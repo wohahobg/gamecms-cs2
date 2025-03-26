@@ -43,10 +43,10 @@ namespace GameCMS
 
             // Remove "VIP_" prefix and store the remaining names in a list
             List<string> modules = vipDirectories
-                                    .Select(dir => Path.GetFileName(dir)) // Get the folder name
-                                    .Where(name => name.StartsWith("VIP_")) // Ensure it starts with "VIP_"
-                                    .Select(name => name.Substring(4)) // Remove the "VIP_" prefix
-                                    .ToList(); // Store in a list
+                                    .Select(dir => Path.GetFileName(dir))
+                                    .Where(name => name.StartsWith("VIP_"))
+                                    .Select(name => name.Substring(4))
+                                    .ToList();
 
 
             int serverId = Config.ServerId;
