@@ -10,17 +10,8 @@ using static GameCMS.GameCMSPlugin;
 
 namespace GameCMS.Services
 {
-    public class VipPlayerEntity
-    {
-        public int server_id { get; set; }
-        public string steam_id { get; set; } = string.Empty;
-        public string username { get; set; } = string.Empty;
-        public string flags { get; set; } = string.Empty;
-        public long created { get; set; }
-        public long last_seen { get; set; }
-    }
-
-    public class VipPlayerService
+    
+    public class VipStatusTrackerService
     {
         private Helper _helper;
         private HttpClient httpClient = new HttpClient();
@@ -30,15 +21,7 @@ namespace GameCMS.Services
         private MySqlConnection? _connection;
         private int _serverId;
 
-        private int roundsWinsCt = 0;
-        private int roundsWinsT = 0;
-        private long matchStartTime = 0;
-        private bool isWarmupRound = true;
-        private static bool isRequestInProgress = false;
-        private static readonly TimeSpan requestCooldown = TimeSpan.FromSeconds(3);
-        private static DateTime lastRequestTime = DateTime.MinValue;
-
-        public VipPlayerService(ILogger<PlayingTimeService> logger, Helper helper, IPluginContext pluginContext)
+        public VipStatusTrackerService(ILogger<PlayingTimeService> logger, Helper helper, IPluginContext pluginContext)
         {
             _helper = helper;
             _logger = logger;
@@ -49,13 +32,13 @@ namespace GameCMS.Services
         {
             _serverId = serverId;
             _plugin = (_pluginContext.Plugin as GameCMSPlugin)!;
-            _logger.LogInformation("Starting vip player collection service");
+            _logger.LogInformation("Starting VIP status tracker service");
 
-            if (!_plugin.Config.services.VipServices.Enabled) return;
+            if (!_plugin.Config.services.VipStatusTracker.Enabled) return;
 
             _plugin.RegisterEventHandler((EventRoundEnd @event, GameEventInfo info) =>
             {
-                if (!_plugin.Config.services.VipServices.Enabled) return HookResult.Continue;
+                if (!_plugin.Config.services.VipStatusTracker.Enabled) return HookResult.Continue;
 
                 CSSThread.RunOnMainThread(() =>
                 {
@@ -67,7 +50,7 @@ namespace GameCMS.Services
 
             _plugin.RegisterEventHandler((EventServerShutdown @event, GameEventInfo info) =>
             {
-                if (!_plugin.Config.services.VipServices.Enabled) return HookResult.Continue;
+                if (!_plugin.Config.services.VipStatusTracker.Enabled) return HookResult.Continue;
 
                 CSSThread.RunOnMainThread(() =>
                 {
@@ -79,10 +62,12 @@ namespace GameCMS.Services
 
             _plugin.RegisterEventHandler((EventPlayerActivate @event, GameEventInfo info) =>
             {
-                if (!_plugin.Config.services.VipServices.Enabled) return HookResult.Continue;
+                if (!_plugin.Config.services.VipStatusTracker.Enabled) return HookResult.Continue;
                 CCSPlayerController player = @event.Userid!;
                 if (player == null || _helper.isValidPlayer(player) == false || player.IsHLTV || player.IsBot)
                     return HookResult.Continue;
+
+                _logger.LogInformation($"Starting VIP check for player {player.PlayerName} ({player.SteamID})");
 
                 _plugin.AddTimer(3.0f, () =>
                 {
@@ -90,11 +75,19 @@ namespace GameCMS.Services
                     {
                         try
                         {
-                            AdminData adminData = AdminManager.GetPlayerAdminData(player)!;
-
-                            if (adminData == null || adminData.Flags.Any() == false) return;
+                            _logger.LogInformation($"Processing VIP check for player {player.PlayerName}");
                             
-                            string[] serviceFlags = _plugin.Config.services.VipServices.FlagsList;
+                            AdminData adminData = AdminManager.GetPlayerAdminData(player)!;
+                            
+                            if(adminData == null)
+                            {
+                                _logger.LogWarning($"No admin data found for player {player.PlayerName}");
+                                return;
+                            }
+
+                            _logger.LogInformation($"Found admin data for {player.PlayerName}. Flags: {string.Join(", ", adminData.Flags.Values.SelectMany(x => x))}");
+                            
+                            string[] serviceFlags = _plugin.Config.services.VipStatusTracker.FlagsList;
 
                             // Normalize flags by removing @ prefix if present
                             var normalizedAdminFlags = adminData.Flags.Values
@@ -119,7 +112,7 @@ namespace GameCMS.Services
                                         .Where(flag => serviceFlags.Contains(flag))
                                         .ToList();
 
-                                    var vipPlayer = new VipPlayerEntity
+                                    var vipPlayer = new VipStatusTrackerEntity
                                     {
                                         server_id = _serverId,
                                         steam_id = player.SteamID.ToString(),
@@ -153,9 +146,9 @@ namespace GameCMS.Services
             });
         }
 
-        public async Task AddVipPlayerAsync(VipPlayerEntity vipPlayer)
+        public async Task AddVipPlayerAsync(VipStatusTrackerEntity vipPlayer)
         {
-            var properties = typeof(VipPlayerEntity).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            var properties = typeof(VipStatusTrackerEntity).GetProperties(BindingFlags.Public | BindingFlags.Instance);
             var columnNames = properties.Select(p => $"`{p.Name}`");
             var columnParameters = properties.Select(p => $"@{p.Name}");
 
@@ -169,7 +162,7 @@ namespace GameCMS.Services
             var updateClause = string.Join(", ", updateColumns);
 
             var sql = $@"
-                INSERT INTO gcms_vip_players ({columns}) 
+                INSERT INTO gcms_vip_status_tracker ({columns}) 
                 VALUES ({values})
                 ON DUPLICATE KEY UPDATE 
                     last_seen = VALUES(last_seen),
@@ -181,10 +174,10 @@ namespace GameCMS.Services
 
         public async Task PurgeVipPlayersAsync()
         {
-            string query = "DELETE FROM gcms_vip_players WHERE last_seen < @time";
+            string query = "DELETE FROM gcms_vip_status_tracker WHERE last_seen < @time";
             await _connection!.ExecuteAsync(query, new
             {
-                time = _helper.GetTime() - (_plugin!.Config.services.VipServices.PurgeDays * 86400)
+                time = _helper.GetTime() - (_plugin!.Config.services.VipStatusTracker.PurgeDays * 86400)
             });
         }
     }

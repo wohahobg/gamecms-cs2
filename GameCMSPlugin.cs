@@ -31,11 +31,11 @@
 
         private PlayingTimeService _playingTimeService;
         private ServerDataService _serverDataService;
-        private VipPlayerService _vipPlayerService;
+        private VipStatusTrackerService _vipStatusTrackerService;
         private string API_URI_BASE = "https://api.gamecms.org/v2";
 
 
-        public GameCMSPlugin(Helper helper, WebstoreService webstoreService, AdminService adminService, HttpServerSerivce httpServer, PlayingTimeService playingTimeService, ServerDataService serverDataService, VipPlayerService vipPlayerService)
+        public GameCMSPlugin(Helper helper, WebstoreService webstoreService, AdminService adminService, HttpServerSerivce httpServer, PlayingTimeService playingTimeService, ServerDataService serverDataService, VipStatusTrackerService vipStatusTrackerService)
         {
             _helper = helper;
             _helper.setDirecotry(Server.GameDirectory);
@@ -44,7 +44,7 @@
             _webStoreService = webstoreService;
             _playingTimeService = playingTimeService;
             _serverDataService = serverDataService;
-            _vipPlayerService = vipPlayerService;
+            _vipStatusTrackerService = vipStatusTrackerService;
         }
 
         public override void Load(bool hotReload)
@@ -64,9 +64,9 @@
                 _serverDataService.Start(hotReload, serverId);
             }
 
-            if (Config.services.VipServices.Enabled)
+            if (Config.services.VipStatusTracker.Enabled)
             {
-                _vipPlayerService.Start(hotReload, serverId);
+                _vipStatusTrackerService.Start(hotReload, serverId);
             }
 
             if (hotReload)
@@ -401,7 +401,7 @@
             serviceCollection.AddSingleton<HttpServerSerivce>();
             serviceCollection.AddSingleton<PlayingTimeService>();
             serviceCollection.AddSingleton<ServerDataService>();
-            serviceCollection.AddSingleton<VipPlayerService>();
+            serviceCollection.AddSingleton<VipStatusTrackerService>();
         }
     }
 

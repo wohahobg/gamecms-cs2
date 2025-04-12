@@ -156,7 +156,7 @@ namespace GameCMS
 
 
             sql += @"
-                CREATE TABLE IF NOT EXISTS gcms_vip_players (
+                CREATE TABLE IF NOT EXISTS gcms_vip_status_tracker (
                     `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
                     `server_id` BIGINT DEFAULT 0,
                     `steam_id` VARCHAR(32),
