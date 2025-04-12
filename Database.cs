@@ -155,6 +155,21 @@ namespace GameCMS
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;";
 
 
+            sql += @"
+                CREATE TABLE IF NOT EXISTS gcms_vip_players (
+                    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    `server_id` BIGINT DEFAULT 0,
+                    `steam_id` VARCHAR(32),
+                    `username` VARCHAR(255) NOT NULL,
+                    `flags` LONGTEXT,
+                    `last_seen` BIGINT NOT NULL,
+                    `created` BIGINT NOT NULL,
+                    INDEX idx_steam_id (`steam_id`),
+                    INDEX idx_server_id (`server_id`),
+                    INDEX idx_last_seen (`last_seen`),
+                    UNIQUE KEY `unique_player_per_server` (`server_id`, `steam_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;";
+
             try
             {
                 await using MySqlConnection connection = await GetConnection();

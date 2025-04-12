@@ -40,4 +40,17 @@ namespace GameCMS
         public uint ping { get; set; }
     }
 
+
+    public class VipPlayerEntity
+    {
+        public int id { get; set; }
+        public long server_id { get; set; }
+        public ulong steam_id { get; set; }
+        public string username { get; set; } = string.Empty;    
+        public string flags { get; set; } = string.Empty;
+        public long created { get; set; }
+        public long last_seen { get; set; }
+    }   
+
+
 }

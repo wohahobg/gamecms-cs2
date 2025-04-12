@@ -182,18 +182,37 @@ namespace GameCMS
 
                         var formData = new List<KeyValuePair<string, string>>
                         {
-                    new KeyValuePair<string, string>("data", serverData)
+                            new KeyValuePair<string, string>("data", serverData)
                         };
                         var contentData = new FormUrlEncodedContent(formData);
 
                         httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", postToken);
 
-                        var postResponse = await httpClient.PostAsync(postUrl, contentData);
-
-                        if (postResponse.StatusCode != HttpStatusCode.OK && postResponse.StatusCode != HttpStatusCode.Created)
+                        try 
                         {
-                            string errorResponse = await postResponse.Content.ReadAsStringAsync();
-                            _logger.LogWarning("Error sending data: StatusCode {0}, Response: {1}", postResponse.StatusCode, errorResponse);
+                            var postResponse = await httpClient.PostAsync(postUrl, contentData);
+                            string responseContent = await postResponse.Content.ReadAsStringAsync();
+
+                            if (postResponse.StatusCode != HttpStatusCode.OK && postResponse.StatusCode != HttpStatusCode.Created)
+                            {
+                                _logger.LogError("Failed to send server data. Status: {0}, Response: {1}", postResponse.StatusCode, responseContent);
+                            }
+                        }
+                        catch (JsonException ex)
+                        {
+                            _logger.LogError("Invalid server data format: {0}", ex.Message);
+                        }
+                        catch (HttpRequestException ex)
+                        {
+                            _logger.LogError("API connection error: {0}", ex.Message);
+                        }
+                        catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
+                        {
+                            _logger.LogError("API request timeout");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError("Unexpected error while sending server data: {0}", ex.Message);
                         }
                     }
                     catch (HttpRequestException ex)

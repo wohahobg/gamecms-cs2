@@ -53,6 +53,25 @@ namespace GameCMS
         public bool PlayingTime { get; set; } = true;
         [JsonPropertyName("server-data-collection")]
         public bool ServerDataCollection { get; set; } = true;
+        [JsonPropertyName("vip-services")]
+        public VipServicesConfig VipServices { get; set; } = new VipServicesConfig();
+
+    }
+
+
+    public sealed class VipServicesConfig
+    {
+
+        [JsonPropertyName("comment")]
+        public string Comment { get; set; } = "Please visit https://docs.gamecms.org/integrations/counter-strike-2/gamecms-plugins-features for more information what this service does.";
+
+        [JsonPropertyName("enabled")]
+        public bool Enabled { get; set; } = true;
+        [JsonPropertyName("flags-list")]
+        public string[] FlagsList { get; set; } = new string[] { "css/vip","css/vip-plus","css/vip-premium" };  
+
+        [JsonPropertyName("purge-days")]
+        public int PurgeDays { get; set; } = 30;
     }
 
 }

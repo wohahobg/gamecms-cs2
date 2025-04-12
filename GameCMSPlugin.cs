@@ -12,6 +12,7 @@
     using CounterStrikeSharp.API.Modules.Admin;
     using CounterStrikeSharp.API.Modules.Cvars;
     using System.Text.Json.Serialization;
+    using GameCMS.Services;
 
     public sealed partial class GameCMSPlugin : BasePlugin, IPluginConfig<GameCMSConfig>
     {
@@ -30,11 +31,11 @@
 
         private PlayingTimeService _playingTimeService;
         private ServerDataService _serverDataService;
-
+        private VipPlayerService _vipPlayerService;
         private string API_URI_BASE = "https://api.gamecms.org/v2";
 
 
-        public GameCMSPlugin(Helper helper, WebstoreService webstoreService, AdminService adminService, HttpServerSerivce httpServer, PlayingTimeService playingTimeService, ServerDataService serverDataService)
+        public GameCMSPlugin(Helper helper, WebstoreService webstoreService, AdminService adminService, HttpServerSerivce httpServer, PlayingTimeService playingTimeService, ServerDataService serverDataService, VipPlayerService vipPlayerService)
         {
             _helper = helper;
             _helper.setDirecotry(Server.GameDirectory);
@@ -43,6 +44,7 @@
             _webStoreService = webstoreService;
             _playingTimeService = playingTimeService;
             _serverDataService = serverDataService;
+            _vipPlayerService = vipPlayerService;
         }
 
         public override void Load(bool hotReload)
@@ -60,6 +62,11 @@
             if (Config.services.ServerDataCollection)
             {
                 _serverDataService.Start(hotReload, serverId);
+            }
+
+            if (Config.services.VipServices.Enabled)
+            {
+                _vipPlayerService.Start(hotReload, serverId);
             }
 
             if (hotReload)
@@ -394,6 +401,7 @@
             serviceCollection.AddSingleton<HttpServerSerivce>();
             serviceCollection.AddSingleton<PlayingTimeService>();
             serviceCollection.AddSingleton<ServerDataService>();
+            serviceCollection.AddSingleton<VipPlayerService>();
         }
     }
 
