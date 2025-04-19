@@ -75,18 +75,13 @@ namespace GameCMS.Services
                     {
                         try
                         {
-                            _logger.LogInformation($"Processing VIP check for player {player.PlayerName}");
-                            
                             AdminData adminData = AdminManager.GetPlayerAdminData(player)!;
-                            
                             if(adminData == null)
                             {
-                                _logger.LogWarning($"No admin data found for player {player.PlayerName}");
+                                await _connection!.ExecuteAsync("DELETE FROM gcms_vip_status_tracker WHERE steam_id = @steam_id AND server_id = @server_id", new { steam_id = player.SteamID.ToString(), server_id = _serverId });
                                 return;
                             }
 
-                            _logger.LogInformation($"Found admin data for {player.PlayerName}. Flags: {string.Join(", ", adminData.Flags.Values.SelectMany(x => x))}");
-                            
                             string[] serviceFlags = _plugin.Config.services.VipStatusTracker.FlagsList;
 
                             // Normalize flags by removing @ prefix if present
@@ -98,6 +93,13 @@ namespace GameCMS.Services
                             bool hasVipFlag = normalizedAdminFlags
                                 .Intersect(serviceFlags)
                                 .Any();
+
+
+                            if (!hasVipFlag)
+                            {
+                                await _connection!.ExecuteAsync("DELETE FROM gcms_vip_status_tracker WHERE steam_id = @steam_id AND server_id = @server_id", new { steam_id = player.SteamID.ToString(), server_id = _serverId });
+                                return;
+                            }
 
                             if (hasVipFlag)
                             {

@@ -5,7 +5,6 @@ namespace GameCMS
     using System.Collections.Specialized;
     using System.Net;
     using System.Text;
-    using System.Text.Json;
     using System.Text.RegularExpressions;
     using System.Web;
     using CounterStrikeSharp.API;
@@ -13,6 +12,9 @@ namespace GameCMS
     using CounterStrikeSharp.API.Modules.Cvars;
     using CounterStrikeSharp.API.Modules.Utils;
     using Microsoft.Extensions.Logging;
+    using Newtonsoft.Json;
+    using Newtonsoft.Json.Serialization;
+    using Newtonsoft.Json.Linq;
 
 
     public class HttpServerSerivce
@@ -45,45 +47,82 @@ namespace GameCMS
                 return;
             }
 
-            string jsonContent = File.ReadAllText(filePath!);
-            if (string.IsNullOrWhiteSpace(jsonContent))
-            {
-                await SendJsonResponse(context, new { message = $"The file '{fileName}' at path '{filePath}' is empty." }, 400);
-                return;
-            }
-
-            if (jsonContent == "[]")
-            {
-                await SendJsonResponse(context, new { data = new Dictionary<string, object>() }, 200);
-                return;
-            }
-
             try
             {
-                // Remove comments from the JSON content
-                string json = Regex.Replace(jsonContent, @"/\*(.*?)\*/|//(.*)", string.Empty, RegexOptions.Multiline);
+                // Read the file with explicit UTF-8 encoding
+                string jsonContent = await File.ReadAllTextAsync(filePath!, Encoding.UTF8);
+                
+                if (string.IsNullOrWhiteSpace(jsonContent))
+                {
+                    await SendJsonResponse(context, new { message = $"The file '{fileName}' at path '{filePath}' is empty." }, 400);
+                    return;
+                }
+
+                if (jsonContent == "[]")
+                {
+                    await SendJsonResponse(context, new { data = new Dictionary<string, object>() }, 200);
+                    return;
+                }
+
+                // Use JsonLoadSettings to handle comments
+                var loadSettings = new JsonLoadSettings
+                {
+                    CommentHandling = CommentHandling.Ignore,
+                    LineInfoHandling = LineInfoHandling.Ignore
+                };
+
+                // List of sensitive keys to remove
+                var sensitiveKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    "database",
+                    "db",
+                    "databaseSettings",
+                    "license-key",
+                    "database-settings",
+                    "password",
+                    "apiKey",
+                    "apikey",
+                    "token",
+                    "secret",
+                    "credentials",
+                    "connectionString",
+                    "connection_string"
+                };
 
                 // Determine the type of JSON structure
-                if (json.TrimStart().StartsWith("{"))
+                if (jsonContent.TrimStart().StartsWith("{"))
                 {
-                    // Deserialize as an object (Dictionary)
-                    var jsonObject = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
-                    if (jsonObject == null)
+                    // First parse as JObject which is more lenient
+                    var jObject = JObject.Parse(jsonContent, loadSettings);
+                    if (jObject == null)
                     {
                         await SendJsonResponse(context, new { message = $"The file '{fileName}' contains invalid JSON content. Path: {filePath}" }, 400);
                         return;
                     }
+
+                    // Remove sensitive data
+                    RemoveSensitiveData(jObject, sensitiveKeys);
+
+                    // Convert to dictionary after successful parse
+                    var jsonObject = jObject.ToObject<Dictionary<string, object>>();
                     await SendJsonResponse(context, new { data = jsonObject }, 200);
                 }
-                else if (json.TrimStart().StartsWith("["))
+                else if (jsonContent.TrimStart().StartsWith("["))
                 {
-                    // Deserialize as an array of objects (List of Dictionaries)
-                    var jsonArray = JsonSerializer.Deserialize<List<Dictionary<string, object>>>(json);
-                    if (jsonArray == null)
+                    var jArray = JArray.Parse(jsonContent, loadSettings);
+                    if (jArray == null)
                     {
                         await SendJsonResponse(context, new { message = $"The file '{fileName}' contains invalid JSON content. Path: {filePath}" }, 400);
                         return;
                     }
+
+                    // Remove sensitive data from each object in the array
+                    foreach (var item in jArray.OfType<JObject>())
+                    {
+                        RemoveSensitiveData(item, sensitiveKeys);
+                    }
+
+                    var jsonArray = jArray.ToObject<List<Dictionary<string, object>>>();
                     await SendJsonResponse(context, new { data = jsonArray }, 200);
                 }
                 else
@@ -91,12 +130,44 @@ namespace GameCMS
                     await SendJsonResponse(context, new { message = $"Unknown JSON structure in '{fileName}'." }, 400);
                 }
             }
-            catch (JsonException ex)
+            catch (Exception ex)
             {
                 await SendJsonResponse(context, new { message = $"Failed to parse JSON format in '{fileName}'. Path: {filePath}, Error {ex.Message}" }, 400);
             }
+        }
 
+        private void RemoveSensitiveData(JToken token, HashSet<string> sensitiveKeys)
+        {
+            if (token.Type == JTokenType.Object)
+            {
+                var obj = (JObject)token;
+                var propertiesToRemove = new List<JProperty>();
 
+                foreach (var property in obj.Properties())
+                {
+                    if (sensitiveKeys.Contains(property.Name))
+                    {
+                        propertiesToRemove.Add(property);
+                    }
+                    else if (property.Value.Type == JTokenType.Object || property.Value.Type == JTokenType.Array)
+                    {
+                        RemoveSensitiveData(property.Value, sensitiveKeys);
+                    }
+                }
+
+                // Remove the properties after the loop to avoid modifying the collection while iterating
+                foreach (var property in propertiesToRemove)
+                {
+                    property.Remove();
+                }
+            }
+            else if (token.Type == JTokenType.Array)
+            {
+                foreach (var item in token.Children())
+                {
+                    RemoveSensitiveData(item, sensitiveKeys);
+                }
+            }
         }
 
         private async Task HandleUpdateFile(HttpListenerContext context, string fileIdentifier)
@@ -133,8 +204,8 @@ namespace GameCMS
                 try
                 {
 
-                    var jsonObject = JsonSerializer.Deserialize<JsonElement>(jsonString);
-                    string cleanJson = JsonSerializer.Serialize(jsonObject, new JsonSerializerOptions { WriteIndented = true });
+                    var jsonObject = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonString);
+                    string cleanJson = JsonConvert.SerializeObject(jsonObject, Formatting.Indented);
 
                     await File.WriteAllTextAsync(filePath, cleanJson);
                     if (!string.IsNullOrEmpty(reloadCommand))
@@ -179,7 +250,7 @@ namespace GameCMS
             {
                 string content = await File.ReadAllTextAsync(filePath!);
 
-                var contentDict = JsonSerializer.Deserialize<Dictionary<string, object>>(content);
+                var contentDict = JsonConvert.DeserializeObject<Dictionary<string, object>>(content);
 
                 if (contentDict == null || contentDict.Count == 0)
                 {
@@ -302,7 +373,7 @@ namespace GameCMS
         {
             try
             {
-                string jsonResponse = JsonSerializer.Serialize(responseObject);
+                string jsonResponse = JsonConvert.SerializeObject(responseObject);
                 byte[] buffer = Encoding.UTF8.GetBytes(jsonResponse);
 
                 context.Response.StatusCode = statusCode;
@@ -360,6 +431,7 @@ namespace GameCMS
                 "K4-Zenith-Ranks" => (_helper.GetFilePath("plugins/K4-Zenith-Ranks/ranks.jsonc"), null),
                 "K4-System" => (_helper.GetFilePath("plugins/K4-System/ranks.jsonc"), null),
                 "LevelsRanks" => (_helper.GetFilePath("configs/plugins/LevelsRanks/settings_ranks.json"), null),
+                "GameCMSConfig" => (_helper.GetFilePath("configs/plugins/GameCMSPlugin/GameCMSPlugin.json"), null),
                 _ => (null, null), // Handle the default case by returning nulls or some default value
             };
             return result;
@@ -518,6 +590,7 @@ namespace GameCMS
 
                 {("/timezone", "GET"), HandleGetTimezone},
 
+                {("/gamecms", "GET"),  (context) => HandleGetFile(context, "GameCMSConfig") },
                 {("/vipcore/groups", "GET"),  (context) => HandleGetFile(context, "VipCoreGroups") },
                 {("/vipcore/groups", "POST"), (context) => HandleUpdateFile(context, "VipCoreGroups") },
                 {("/vipcore/server", "GET"), (context) => new VIPCoreHelper(this).GetVipCoreServer(context)},
