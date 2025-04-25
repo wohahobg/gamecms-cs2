@@ -431,7 +431,9 @@ namespace GameCMS
                 "K4-Zenith-Ranks" => (_helper.GetFilePath("plugins/K4-Zenith-Ranks/ranks.jsonc"), null),
                 "K4-System" => (_helper.GetFilePath("plugins/K4-System/ranks.jsonc"), null),
                 "LevelsRanks" => (_helper.GetFilePath("configs/plugins/LevelsRanks/settings_ranks.json"), null),
-                "GameCMSConfig" => (_helper.GetFilePath("configs/plugins/GameCMSPlugin/GameCMSPlugin.json"), null),
+                "K4CasesConfig" => (_helper.GetFilePath("configs/plugins/K4-Cases/K4-Cases.json"), null),
+                "K4CasesPrices" => (_helper.GetFilePath("plugins/K4-Cases/prices.json"), null),
+                "K4CasesCrates" => (_helper.GetFilePath("plugins/K4-Cases/custom_cases.jsonc"), null),
                 _ => (null, null), // Handle the default case by returning nulls or some default value
             };
             return result;
@@ -590,7 +592,9 @@ namespace GameCMS
 
                 {("/timezone", "GET"), HandleGetTimezone},
 
-                {("/gamecms", "GET"),  (context) => HandleGetFile(context, "GameCMSConfig") },
+                {("/k4-cases/config", "GET"),  (context) => HandleGetFile(context, "K4CasesConfig") },
+                {("/k4-cases/prices", "GET"),  (context) => HandleGetFile(context, "K4CasesPrices") },
+                {("/k4-cases/crates", "GET"),  (context) => HandleGetFile(context, "K4CasesCrates") },
                 {("/vipcore/groups", "GET"),  (context) => HandleGetFile(context, "VipCoreGroups") },
                 {("/vipcore/groups", "POST"), (context) => HandleUpdateFile(context, "VipCoreGroups") },
                 {("/vipcore/server", "GET"), (context) => new VIPCoreHelper(this).GetVipCoreServer(context)},

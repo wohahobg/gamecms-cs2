@@ -13,6 +13,7 @@
     using CounterStrikeSharp.API.Modules.Cvars;
     using System.Text.Json.Serialization;
     using GameCMS.Services;
+    using System.Text;
 
     public sealed partial class GameCMSPlugin : BasePlugin, IPluginConfig<GameCMSConfig>
     {
@@ -125,6 +126,52 @@
                 });
                 return HookResult.Continue;
             });
+
+        }
+
+
+        public override void OnAllPluginsLoaded(bool hotReload)
+        {
+            //start the timer after 3 seconds
+            this.AddTimer(3.0f, () =>
+            {
+                // //start the task to send the prices.json to the GameCMS API
+                CSSThread.RunOnMainThread(async () =>
+                {
+                    string filePath = _helper.GetFilePath("plugins/K4-Cases/prices.json");
+                    if (File.Exists(filePath))
+                    {
+                    
+                        string jsonContent = await File.ReadAllTextAsync(filePath);
+                        var url = $"{API_URI_BASE}/cs2/k4-cases/prices";
+                        var request = _helper.GetServerRequestHeaders(Config.ServerApiKey);
+                        request.RequestUri = new Uri(url);
+                        request.Method = HttpMethod.Post;
+
+                        //send the json content with post request www-form-urlencoded, and the key is "data"    
+                        var formData = new Dictionary<string, string>
+                        {
+                            { "data", jsonContent }
+                        };
+
+                        request.Content = new FormUrlEncodedContent(formData);
+
+                        try
+                        {
+                            var response = await client.SendAsync(request);
+                            Logger.LogInformation("[K4-Cases Prices Sync] Successfully sent prices.json to GameCMS API.");
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.LogError(ex, "[K4-Cases Prices Sync] Failed to send prices.json to GameCMS API.");
+                        }
+
+                    }
+
+                });
+
+            });
+
 
         }
 
