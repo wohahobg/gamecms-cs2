@@ -33,7 +33,7 @@
         private PlayingTimeService _playingTimeService;
         private ServerDataService _serverDataService;
         private VipStatusTrackerService _vipStatusTrackerService;
-        private string API_URI_BASE = "https://api.gamecms.org/v2";
+        public string API_URI_BASE = "https://api.gamecms.org/v2";
 
 
         public GameCMSPlugin(Helper helper, WebstoreService webstoreService, AdminService adminService, HttpServerSerivce httpServer, PlayingTimeService playingTimeService, ServerDataService serverDataService, VipStatusTrackerService vipStatusTrackerService)
@@ -103,7 +103,7 @@
                             if (response.IsSuccessStatusCode)
                             {
                                 var content = await response.Content.ReadAsStringAsync();
-                                string postUrl = "https://api.gamecms.org/v2/faceit";
+                                string postUrl = $"{API_URI_BASE}/faceit";
                                 string postToken = Config.ServerApiKey;
                                 var formData = new Dictionary<string, string>
                                 {

@@ -177,7 +177,7 @@ namespace GameCMS
                         );
 
                         string serverData = JsonSerializer.Serialize(serverDataEntity);
-                        string postUrl = "https://api.gamecms.org/v2/server-data/cs2";
+                        string postUrl = $"{_plugin.API_URI_BASE}/server-data/cs2";
                         string postToken = _plugin.Config.ServerApiKey;
 
                         var formData = new List<KeyValuePair<string, string>>

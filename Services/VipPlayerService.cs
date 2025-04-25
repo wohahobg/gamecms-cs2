@@ -75,10 +75,16 @@ namespace GameCMS.Services
                     {
                         try
                         {
-                            AdminData adminData = AdminManager.GetPlayerAdminData(player)!;
+                            // Initialize connection if null
+                            if (_connection == null || _connection.State != System.Data.ConnectionState.Open)
+                            {
+                                _connection = await Database.Instance.GetConnection();
+                            }
+                            
+                            AdminData? adminData = AdminManager.GetPlayerAdminData(player);
                             if(adminData == null)
                             {
-                                await _connection!.ExecuteAsync("DELETE FROM gcms_vip_status_tracker WHERE steam_id = @steam_id AND server_id = @server_id", new { steam_id = player.SteamID.ToString(), server_id = _serverId });
+                                await _connection.ExecuteAsync("DELETE FROM gcms_vip_status_tracker WHERE steam_id = @steam_id AND server_id = @server_id", new { steam_id = player.SteamID.ToString(), server_id = _serverId });
                                 return;
                             }
 
@@ -97,7 +103,7 @@ namespace GameCMS.Services
 
                             if (!hasVipFlag)
                             {
-                                await _connection!.ExecuteAsync("DELETE FROM gcms_vip_status_tracker WHERE steam_id = @steam_id AND server_id = @server_id", new { steam_id = player.SteamID.ToString(), server_id = _serverId });
+                                await _connection.ExecuteAsync("DELETE FROM gcms_vip_status_tracker WHERE steam_id = @steam_id AND server_id = @server_id", new { steam_id = player.SteamID.ToString(), server_id = _serverId });
                                 return;
                             }
 
@@ -105,11 +111,6 @@ namespace GameCMS.Services
                             {
                                 try
                                 {
-                                    if (_connection == null || _connection.State != System.Data.ConnectionState.Open)
-                                    {
-                                        _connection = await Database.Instance.GetConnection();
-                                    }
-
                                     var filteredFlags = normalizedAdminFlags
                                         .Where(flag => serviceFlags.Contains(flag))
                                         .ToList();
@@ -150,6 +151,7 @@ namespace GameCMS.Services
 
         public async Task AddVipPlayerAsync(VipStatusTrackerEntity vipPlayer)
         {
+           
             var properties = typeof(VipStatusTrackerEntity).GetProperties(BindingFlags.Public | BindingFlags.Instance);
             var columnNames = properties.Select(p => $"`{p.Name}`");
             var columnParameters = properties.Select(p => $"@{p.Name}");
@@ -176,6 +178,7 @@ namespace GameCMS.Services
 
         public async Task PurgeVipPlayersAsync()
         {
+        
             string query = "DELETE FROM gcms_vip_status_tracker WHERE last_seen < @time";
             await _connection!.ExecuteAsync(query, new
             {
